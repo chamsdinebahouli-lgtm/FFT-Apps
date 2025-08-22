@@ -186,7 +186,7 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
                     dt2 = time_filtered2[1] - time_filtered2[0]
                     fs2 = 1 / dt2
 
-                    signal2_centered = signal_filtered2 - np.mean(signal_filtered2)
+                    signal2_centered = signal_filtered2 - np.mean(signal2_filtered)
                     fft_vals2 = np.fft.fft(signal2_centered)
                     freqs2 = np.fft.fftfreq(len(signal2_centered), d=dt2)
 
@@ -256,19 +256,40 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
 
         # --- Compare Signals ---
         if (len(time_filtered1) > 1 and len(freqs_pos1) > 0) and (len(time_filtered2) > 1 and len(freqs_pos2) > 0):
-            # Comparison based on fundamental frequency magnitude
-            # mag_fundamental1 and mag_fundamental2 are already calculated above
+            # Comparison based on fundamental frequency magnitude (lower is better)
+            mag_fundamental1 = 0
+            if fundamental_frequency1 != 0 and fundamental_frequency1 in freqs_pos1: # Ensure fundamental frequency exists in positive frequencies
+                fundamental_index1 = np.argmin(np.abs(freqs_pos1 - fundamental_frequency1))
+                mag_fundamental1 = magnitude_pos1[fundamental_index1]
 
-            if mag_fundamental1 > mag_fundamental2:
-                comparison_result = "Signal 1 est potentiellement meilleur (amplitude fondamentale plus élevée)."
-            elif mag_fundamental2 > mag_fundamental1:
-                comparison_result = "Signal 2 est potentiellement meilleur (amplitude fondamentale plus élevée)."
-            else:
-                # If fundamental frequencies are similar, compare based on noise power
+            mag_fundamental2 = 0
+            if fundamental_frequency2 != 0 and fundamental_frequency2 in freqs_pos2: # Ensure fundamental frequency exists in positive frequencies
+                 fundamental_index2 = np.argmin(np.abs(freqs_pos2 - fundamental_frequency2))
+                 mag_fundamental2 = magnitude_pos2[fundamental_index2]
+
+            # Handle cases where fundamental frequency is 0 or not detected
+            if fundamental_frequency1 == 0 and fundamental_frequency2 == 0:
+                comparison_result = "Fréquence fondamentale non détectée pour les deux signaux. Comparaison basée sur le bruit."
                 if noise_power1 < noise_power2:
-                    comparison_result = "Signal 1 est potentiellement meilleur (moins de bruit)."
+                    comparison_result += " Signal 1 est potentiellement meilleur (moins de bruit)."
                 elif noise_power2 < noise_power1:
-                    comparison_result = "Signal 2 est potentiellement meilleur (moins de bruit)."
+                    comparison_result += " Signal 2 est potentiellement meilleur (moins de bruit)."
+                else:
+                    comparison_result += " Les signaux sont similaires en termes de bruit."
+            elif fundamental_frequency1 == 0:
+                 comparison_result = "Fréquence fondamentale non détectée pour Signal 1. Comparaison basée sur Signal 2."
+            elif fundamental_frequency2 == 0:
+                 comparison_result = "Fréquence fondamentale non détectée pour Signal 2. Comparaison basée sur Signal 1."
+            elif mag_fundamental1 < mag_fundamental2: # Lower fundamental amplitude is better
+                comparison_result = "Signal 1 est potentiellement meilleur (amplitude fondamentale plus faible)."
+            elif mag_fundamental2 < mag_fundamental1: # Lower fundamental amplitude is better
+                comparison_result = "Signal 2 est potentiellement meilleur (amplitude fondamentale plus faible)."
+            else:
+                # If fundamental amplitudes are similar, compare based on noise power
+                if noise_power1 < noise_power2:
+                    comparison_result = "Les amplitudes fondamentales sont similaires. Signal 1 est potentiellement meilleur (moins de bruit)."
+                elif noise_power2 < noise_power1:
+                    comparison_result = "Les amplitudes fondamentales sont similaires. Signal 2 est potentiellement meilleur (moins de bruit)."
                 else:
                     comparison_result = "Les signaux sont similaires selon les critères d'analyse."
         else:
@@ -287,8 +308,8 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
         # Calculate SNR (Signal-to-Noise Ratio)
         # Assuming fundamental magnitude is the signal power here for simplicity
         # A more accurate SNR would require integrating power over signal and noise bands
-        snr1 = 20 * np.log10(mag_fundamental1 / np.sqrt(noise_power1)) if noise_power1 > 0 else float('inf')
-        snr2 = 20 * np.log10(mag_fundamental2 / np.sqrt(noise_power2)) if noise_power2 > 0 else float('inf')
+        snr1 = 20 * np.log10(mag_fundamental1 / np.sqrt(noise_power1)) if noise_power1 > 0 and mag_fundamental1 > 0 else float('inf')
+        snr2 = 20 * np.log10(mag_fundamental2 / np.sqrt(noise_power2)) if noise_power2 > 0 and mag_fundamental2 > 0 else float('inf')
 
 
         comparison_data = {
