@@ -4,177 +4,329 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import io
 
-st.title("Application d'analyse FFT")
+st.title("Application d'analyse FFT de deux signaux")
 
-uploaded_file = st.file_uploader("Chargez votre fichier CSV", type=["csv"])
+uploaded_file1 = st.file_uploader("Chargez le premier fichier CSV", type=["csv"])
+uploaded_file2 = st.file_uploader("Chargez le deuxième fichier CSV", type=["csv"])
 
 start_threshold = st.number_input("Exclure les N premières secondes :", min_value=0.0, value=30.0, step=1.0)
 end_threshold = st.number_input("Exclure les N dernières secondes :", min_value=0.0, value=20.0, step=1.0)
 
-if uploaded_file is not None:
+if uploaded_file1 is not None and uploaded_file2 is not None:
     try:
-        # Read the uploaded CSV file into a pandas DataFrame
+        # Read the uploaded CSV files into pandas DataFrames
         # Assuming the CSV uses comma as decimal separator, similar to the original notebook
-        df = pd.read_csv(uploaded_file, decimal=',')
+        df1 = pd.read_csv(uploaded_file1, decimal=',')
+        df2 = pd.read_csv(uploaded_file2, decimal=',')
 
         # Display a success message
-        st.success("Fichier chargé avec succès !")
+        st.success("Les deux fichiers ont été chargés avec succès !")
 
-        # Optionally display the head of the DataFrame for confirmation
-        st.subheader("Aperçu des données")
-        st.dataframe(df.head())
+        # Optionally display the head of the DataFrames for confirmation
+        st.subheader("Aperçu des données - Fichier 1")
+        st.dataframe(df1.head())
 
-        # Ensure 'Time' and 'Signal' columns exist
-        if 'Time' in df.columns and 'Signal' in df.columns:
-            time = df['Time'].values
-            signal = df['Signal'].values
+        st.subheader("Aperçu des données - Fichier 2")
+        st.dataframe(df2.head())
 
-            # Apply the time slicing based on user input
-            time_threshold_start = start_threshold
-            time_threshold_end_abs = time[-1] - end_threshold # Calculate absolute end time threshold
+        # --- Process Signal 1 ---
+        if 'Time' in df1.columns and 'Signal' in df1.columns:
+            time1 = df1['Time'].values
+            signal1 = df1['Signal'].values
 
-            start_index = np.argmax(time >= time_threshold_start)
-            # Find the index where time is less than or equal to the absolute end threshold
-            # Search from the end of the array backwards
-            # Ensure we don't go out of bounds if end_threshold is very large
-            end_index_candidate = len(time) - 1 - np.argmax(time[::-1] <= time_threshold_end_abs)
+            # Apply time slicing for Signal 1
+            time_threshold_start1 = start_threshold
+            time_threshold_end_abs1 = time1[-1] - end_threshold
 
-            # Check if end_index_candidate is a valid index in the original time array
-            if 0 <= end_index_candidate < len(time):
-                 end_index = end_index_candidate
+            start_index1 = np.argmax(time1 >= time_threshold_start1)
+            end_index_candidate1 = len(time1) - 1 - np.argmax(time1[::-1] <= time_threshold_end_abs1)
+
+            if 0 <= end_index_candidate1 < len(time1):
+                 end_index1 = end_index_candidate1
             else:
-                 # If the calculated end_index is out of bounds, it means the end_threshold
-                 # is larger than the available data duration after the start_threshold.
-                 # In this case, we should end at the last data point available after start_index.
-                 end_index = len(time) - 1 # Set end_index to the last index of the original array
-                 if end_index < start_index: # Ensure start_index is not beyond the new end_index
-                      start_index = end_index # If it is, set start_index to end_index for an empty range
+                 end_index1 = len(time1) - 1
+                 if end_index1 < start_index1:
+                      start_index1 = end_index1
 
+            if end_index1 >= start_index1:
+                time_filtered1 = time1[start_index1:end_index1+1]
+                signal_filtered1 = signal1[start_index1:end_index1+1]
+                st.write(f"Analyse des données du Signal 1 de {time_filtered1[0]:.2f} à {time_filtered1[-1]:.2f} secondes.")
 
-            # Apply the slicing
-            # Ensure end_index is after start_index
-            if end_index >= start_index:
-                time_filtered = time[start_index:end_index+1]
-                signal_filtered = signal[start_index:end_index+1]
-                st.write(f"Analyse des données de {time_filtered[0]:.2f} à {time_filtered[-1]:.2f} secondes.")
-            else:
-                st.warning("La plage temporelle spécifiée est invalide (le temps de fin n'est pas après le temps de début ou pas de données après le temps de début). Veuillez ajuster les seuils.")
-                time_filtered = np.array([])
-                signal_filtered = np.array([])
+                if len(time_filtered1) > 1:
+                    # FFT for Signal 1
+                    dt1 = time_filtered1[1] - time_filtered1[0]
+                    fs1 = 1 / dt1
 
+                    signal1_centered = signal_filtered1 - np.mean(signal1_filtered)
+                    fft_vals1 = np.fft.fft(signal1_centered)
+                    freqs1 = np.fft.fftfreq(len(signal1_centered), d=dt1)
 
-            if len(time_filtered) > 1:
-                # === Parameters ===
-                dt = time_filtered[1] - time_filtered[0]
-                fs = 1 / dt
+                    mask1 = freqs1 >= 0
+                    freqs_pos1 = freqs1[mask1]
+                    magnitude_pos1 = np.abs(fft_vals1[mask1]) / len(signal1_centered)
 
-                # === FFT ===
-                signal_centered = signal_filtered - np.mean(signal_filtered)
-                fft_vals = np.fft.fft(signal_centered)
-                freqs = np.fft.fftfreq(len(signal_centered), d=dt)
+                    # === Find fundamental frequency and prominent harmonics for Signal 1 ===
+                    fundamental_frequency1 = 0
+                    prominent_freqs1 = []
+                    if len(magnitude_pos1) > 1:
+                        fundamental_freq_index1 = np.argmax(magnitude_pos1[1:]) + 1
+                        fundamental_frequency1 = freqs_pos1[fundamental_freq_index1]
+                        prominent_freqs1.append((fundamental_frequency1, magnitude_pos1[fundamental_freq_index1]))
 
-                # On garde les fréquences positives
-                mask = freqs >= 0
-                freqs_pos = freqs[mask]
-                magnitude_pos = np.abs(fft_vals[mask]) / len(signal_centered)
-
-                # === Find fundamental frequency and prominent harmonics ===
-                fundamental_frequency = 0
-                prominent_freqs = []
-                if len(magnitude_pos) > 1:
-                    # Find the index of the maximum magnitude, excluding the DC component (index 0)
-                    fundamental_freq_index = np.argmax(magnitude_pos[1:]) + 1 # +1 to account for the excluded DC component
-                    fundamental_frequency = freqs_pos[fundamental_freq_index]
-                    prominent_freqs.append((fundamental_frequency, magnitude_pos[fundamental_freq_index]))
-
-
-                # Find other prominent frequencies (harmonics)
-                # Sort the positive frequencies by magnitude in descending order, excluding the DC component
-                sorted_indices = np.argsort(magnitude_pos[1:])[::-1] + 1 # +1 to exclude DC component
-
-                num_harmonics_to_display = 5 # You can change this number
-
-                displayed_harmonics_count = 0
-                for i in range(min(len(sorted_indices), len(freqs_pos) - 1)): # Ensure we don't go out of bounds and exclude DC
-                     freq = freqs_pos[sorted_indices[i]]
-                     mag = magnitude_pos[sorted_indices[i]]
-
-                     # Avoid re-listing the fundamental and only display a limited number of other prominent freqs
-                     if abs(freq - fundamental_frequency) > 1e-9 and displayed_harmonics_count < num_harmonics_to_display:
-                         prominent_freqs.append((freq, mag))
-                         displayed_harmonics_count += 1
-
-
-                st.subheader("Résultats de l'analyse")
-
-                # === Tracés ===
-                fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-
-                # Signal temporel
-                axes[0].plot(time_filtered, signal_filtered, label="Signal filtré")
-                axes[0].set_xlabel("Temps (s)")
-                axes[0].set_ylabel("Amplitude")
-                axes[0].set_title("Signal temporel (filtré)")
-                axes[0].grid(True)
-
-                # Spectre
-                axes[1].stem(freqs_pos, magnitude_pos, basefmt=" ")
-                axes[1].set_xlabel("Fréquence (Hz)")
-                axes[1].set_ylabel("Amplitude")
-                axes[1].set_title("Spectre de Fourier (FFT)")
-                axes[1].set_xlim(0, 10)  # Zoom sur les basses fréquences
-                axes[1].grid(True)
-
-                # Add annotations for prominent frequencies
-                for freq, mag in prominent_freqs:
-                    axes[1].annotate(f'{freq:.2f} Hz', xy=(freq, mag), xytext=(freq + 0.1, mag + 0.01),
-                                 arrowprops=dict(facecolor='black', shrink=0.05), fontsize=9)
-
-
-                plt.tight_layout()
-                st.pyplot(fig) # Use st.pyplot for interactive plot in Streamlit
-
-                # Display fundamental frequency
-                if fundamental_frequency != 0:
-                    st.write(f"**Fréquence fondamentale :** {fundamental_frequency:.4f} Hz")
+                    sorted_indices1 = np.argsort(magnitude_pos1[1:])[::-1] + 1
+                    num_harmonics_to_display = 5
+                    displayed_harmonics_count1 = 0
+                    for i in range(min(len(sorted_indices1), len(freqs_pos1) - 1)):
+                         freq = freqs_pos1[sorted_indices1[i]]
+                         mag = magnitude_pos1[sorted_indices1[i]]
+                         if abs(freq - fundamental_frequency1) > 1e-9 and displayed_harmonics_count1 < num_harmonics_to_display:
+                             prominent_freqs1.append((freq, mag))
+                             displayed_harmonics_count1 += 1
                 else:
-                    st.write("**Fréquence fondamentale :** Non détectée (pas assez de données ou pas de pic significatif).")
-
-
-                # Display prominent harmonics
-                st.write("**Autres fréquences proéminentes (harmoniques potentielles) :**")
-                if len(prominent_freqs) > 1: # Check if there are other frequencies besides the fundamental (if found)
-                     # Filter out the fundamental frequency if it was added as the first element
-                    other_prominent_freqs = [f for f in prominent_freqs if abs(f[0] - fundamental_frequency) > 1e-9]
-
-                    if other_prominent_freqs:
-                        for freq, mag in other_prominent_freqs:
-                             st.write(f"- Fréquence: {freq:.4f} Hz, Amplitude: {mag:.4f}")
-                    else:
-                         st.write("Aucune autre harmonique proéminente trouvée (au-delà du seuil d'affichage).")
-                elif len(prominent_freqs) == 1 and fundamental_frequency != 0: # Only fundamental found
-                     st.write("Aucune autre harmonique proéminente trouvée (au-delà du seuil d'affichage).")
-                else:
-                    st.write("Aucune harmonique proéminente trouvée.")
-
-                # Add download button for prominent frequencies
-                if prominent_freqs:
-                    prominent_freqs_df = pd.DataFrame(prominent_freqs, columns=['Frequency (Hz)', 'Magnitude'])
-                    csv_data = prominent_freqs_df.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="Télécharger les fréquences proéminentes (CSV)",
-                        data=csv_data,
-                        file_name='prominent_frequencies.csv',
-                        mime='text/csv',
-                    )
-
+                    st.warning("Pas assez de points de données pour le Signal 1 après application des seuils temporels pour effectuer l'analyse FFT.")
+                    fundamental_frequency1 = 0
+                    prominent_freqs1 = []
+                    freqs_pos1 = np.array([])
+                    magnitude_pos1 = np.array([])
 
             else:
-                st.warning("Pas assez de points de données après application des seuils temporels pour effectuer l'analyse FFT.")
+                st.warning("La plage temporelle spécifiée est invalide pour le Signal 1. Veuillez ajuster les seuils.")
+                time_filtered1 = np.array([])
+                signal_filtered1 = np.array([])
+                fundamental_frequency1 = 0
+                prominent_freqs1 = []
+                freqs_pos1 = np.array([])
+                magnitude_pos1 = np.array([])
 
         else:
-            st.error("Le fichier CSV téléchargé doit contenir les colonnes 'Time' et 'Signal'.")
+            st.error("Le fichier CSV du Signal 1 doit contenir les colonnes 'Time' et 'Signal'.")
+            fundamental_frequency1 = 0
+            prominent_freqs1 = []
+            freqs_pos1 = np.array([])
+            magnitude_pos1 = np.array([])
+            time_filtered1 = np.array([])
+            signal_filtered1 = np.array([])
+
+
+        # --- Process Signal 2 ---
+        if 'Time' in df2.columns and 'Signal' in df2.columns:
+            time2 = df2['Time'].values
+            signal2 = df2['Signal'].values
+
+            # Apply time slicing for Signal 2
+            time_threshold_start2 = start_threshold
+            time_threshold_end_abs2 = time2[-1] - end_threshold
+
+            start_index2 = np.argmax(time2 >= time_threshold_start2)
+            end_index_candidate2 = len(time2) - 1 - np.argmax(time2[::-1] <= time_threshold_end_abs2)
+
+            if 0 <= end_index_candidate2 < len(time2):
+                 end_index2 = end_index_candidate2
+            else:
+                 end_index2 = len(time2) - 1
+                 if end_index2 < start_index2:
+                      start_index2 = end_index2
+
+
+            if end_index2 >= start_index2:
+                time_filtered2 = time2[start_index2:end_index2+1]
+                signal_filtered2 = signal2[start_index2:end_index2+1]
+                st.write(f"Analyse des données du Signal 2 de {time_filtered2[0]:.2f} à {time_filtered2[-1]:.2f} secondes.")
+
+                if len(time_filtered2) > 1:
+                    # FFT for Signal 2
+                    dt2 = time_filtered2[1] - time_filtered2[0]
+                    fs2 = 1 / dt2
+
+                    signal2_centered = signal_filtered2 - np.mean(signal_filtered2)
+                    fft_vals2 = np.fft.fft(signal2_centered)
+                    freqs2 = np.fft.fftfreq(len(signal2_centered), d=dt2)
+
+                    mask2 = freqs2 >= 0
+                    freqs_pos2 = freqs2[mask2]
+                    magnitude_pos2 = np.abs(fft_vals2[mask2]) / len(signal2_centered)
+
+                    # === Find fundamental frequency and prominent harmonics for Signal 2 ===
+                    fundamental_frequency2 = 0
+                    prominent_freqs2 = []
+                    if len(magnitude_pos2) > 1:
+                        fundamental_freq_index2 = np.argmax(magnitude_pos2[1:]) + 1
+                        fundamental_frequency2 = freqs_pos2[fundamental_freq_index2]
+                        prominent_freqs2.append((fundamental_frequency2, magnitude_pos2[fundamental_freq_index2]))
+
+                    sorted_indices2 = np.argsort(magnitude_pos2[1:])[::-1] + 1
+                    displayed_harmonics_count2 = 0
+                    for i in range(min(len(sorted_indices2), len(freqs_pos2) - 1)):
+                         freq = freqs_pos2[sorted_indices2[i]]
+                         mag = magnitude_pos2[sorted_indices2[i]]
+                         if abs(freq - fundamental_frequency2) > 1e-9 and displayed_harmonics_count2 < num_harmonics_to_display:
+                             prominent_freqs2.append((freq, mag))
+                             displayed_harmonics_count2 += 1
+                else:
+                    st.warning("Pas assez de points de données pour le Signal 2 après application des seuils temporels pour effectuer l'analyse FFT.")
+                    fundamental_frequency2 = 0
+                    prominent_freqs2 = []
+                    freqs_pos2 = np.array([])
+                    magnitude_pos2 = np.array([])
+            else:
+                st.warning("La plage temporelle spécifiée est invalide pour le Signal 2. Veuillez ajuster les seuils.")
+                time_filtered2 = np.array([])
+                signal_filtered2 = np.array([])
+                fundamental_frequency2 = 0
+                prominent_freqs2 = []
+                freqs_pos2 = np.array([])
+                magnitude_pos2 = np.array([])
+
+        else:
+            st.error("Le fichier CSV du Signal 2 doit contenir les colonnes 'Time' et 'Signal'.")
+            fundamental_frequency2 = 0
+            prominent_freqs2 = []
+            freqs_pos2 = np.array([])
+            magnitude_pos2 = np.array([])
+            time_filtered2 = np.array([])
+            signal_filtered2 = np.array([])
+
+        # --- Display Results ---
+        st.subheader("Résultats de l'analyse")
+
+        if (len(time_filtered1) > 1 and len(freqs_pos1) > 0) or (len(time_filtered2) > 1 and len(freqs_pos2) > 0):
+            # === Tracés ===
+            fig, axes = plt.subplots(2, 2, figsize=(12, 10)) # 2 rows for two signals, 2 columns for time/freq plots
+
+            # Signal temporel 1
+            if len(time_filtered1) > 1:
+                axes[0, 0].plot(time_filtered1, signal_filtered1, label="Signal 1 filtré")
+                axes[0, 0].set_xlabel("Temps (s)")
+                axes[0, 0].set_ylabel("Amplitude")
+                axes[0, 0].set_title("Signal temporel 1 (filtré)")
+                axes[0, 0].grid(True)
+            else:
+                 axes[0, 0].set_title("Signal temporel 1 (filtré) - Données manquantes")
+                 axes[0, 0].text(0.5, 0.5, "Données non disponibles", horizontalalignment='center', verticalalignment='center', transform=axes[0, 0].transAxes)
+
+
+            # Spectre 1
+            if len(freqs_pos1) > 0:
+                axes[0, 1].stem(freqs_pos1, magnitude_pos1, basefmt=" ")
+                axes[0, 1].set_xlabel("Fréquence (Hz)")
+                axes[0, 1].set_ylabel("Amplitude")
+                axes[0, 1].set_title("Spectre de Fourier (FFT) - Signal 1")
+                axes[0, 1].set_xlim(0, 10)  # Zoom sur les basses fréquences
+                axes[0, 1].grid(True)
+
+                # Add annotations for prominent frequencies for Signal 1
+                if prominent_freqs1:
+                    for freq, mag in prominent_freqs1:
+                        axes[0, 1].annotate(f'{freq:.2f} Hz', xy=(freq, mag), xytext=(freq + 0.1, mag + 0.01),
+                                     arrowprops=dict(facecolor='black', shrink=0.05), fontsize=9)
+            else:
+                axes[0, 1].set_title("Spectre de Fourier (FFT) - Signal 1 - Données manquantes")
+                axes[0, 1].text(0.5, 0.5, "Données non disponibles", horizontalalignment='center', verticalalignment='center', transform=axes[0, 1].transAxes)
+
+
+            # Signal temporel 2
+            if len(time_filtered2) > 1:
+                 axes[1, 0].plot(time_filtered2, signal_filtered2, label="Signal 2 filtré", color='orange')
+                 axes[1, 0].set_xlabel("Temps (s)")
+                 axes[1, 0].set_ylabel("Amplitude")
+                 axes[1, 0].set_title("Signal temporel 2 (filtré)")
+                 axes[1, 0].grid(True)
+            else:
+                 axes[1, 0].set_title("Signal temporel 2 (filtré) - Données manquantes")
+                 axes[1, 0].text(0.5, 0.5, "Données non disponibles", horizontalalignment='center', verticalalignment='center', transform=axes[1, 0].transAxes)
+
+
+            # Spectre 2
+            if len(freqs_pos2) > 0:
+                axes[1, 1].stem(freqs_pos2, magnitude_pos2, basefmt=" ", linefmt='orange', markerfmt='o', label="Signal 2")
+                axes[1, 1].set_xlabel("Fréquence (Hz)")
+                axes[1, 1].set_ylabel("Amplitude")
+                axes[1, 1].set_title("Spectre de Fourier (FFT) - Signal 2")
+                axes[1, 1].set_xlim(0, 10)  # Zoom sur les basses fréquences
+                axes[1, 1].grid(True)
+
+                # Add annotations for prominent frequencies for Signal 2
+                if prominent_freqs2:
+                    for freq, mag in prominent_freqs2:
+                        axes[1, 1].annotate(f'{freq:.2f} Hz', xy=(freq, mag), xytext=(freq + 0.1, mag + 0.01),
+                                         arrowprops=dict(facecolor='black', shrink=0.05), fontsize=9, color='orange')
+            else:
+                axes[1, 1].set_title("Spectre de Fourier (FFT) - Signal 2 - Données manquantes")
+                axes[1, 1].text(0.5, 0.5, "Données non disponibles", horizontalalignment='center', verticalalignment='center', transform=axes[1, 1].transAxes)
+
+
+            plt.tight_layout()
+            st.pyplot(fig)
+
+            # Display fundamental frequencies
+            st.write("### Fréquences Fondamentales")
+            st.write(f"**Signal 1 :** {'{:.4f} Hz'.format(fundamental_frequency1) if fundamental_frequency1 != 0 else 'Non détectée'}")
+            st.write(f"**Signal 2 :** {'{:.4f} Hz'.format(fundamental_frequency2) if fundamental_frequency2 != 0 else 'Non détectée'}")
+
+
+            # Display prominent harmonics
+            st.write("### Harmoniques Proéminentes - Signal 1")
+            if len(prominent_freqs1) > 1:
+                 other_prominent_freqs1 = [f for f in prominent_freqs1 if abs(f[0] - fundamental_frequency1) > 1e-9]
+                 if other_prominent_freqs1:
+                     for freq, mag in other_prominent_freqs1:
+                         st.write(f"- Fréquence: {freq:.4f} Hz, Amplitude: {mag:.4f}")
+                 else:
+                      st.write("Aucune autre harmonique proéminente trouvée (au-delà du seuil d'affichage).")
+            elif len(prominent_freqs1) == 1 and fundamental_frequency1 != 0:
+                 st.write("Aucune autre harmonique proéminente trouvée (au-delà du seuil d'affichage).")
+            else:
+                 st.write("Aucune harmonique proéminente trouvée.")
+
+            st.write("### Harmoniques Proéminentes - Signal 2")
+            if len(prominent_freqs2) > 1:
+                 other_prominent_freqs2 = [f for f in prominent_freqs2 if abs(f[0] - fundamental_frequency2) > 1e-9]
+                 if other_prominent_freqs2:
+                     for freq, mag in other_prominent_freqs2:
+                         st.write(f"- Fréquence: {freq:.4f} Hz, Amplitude: {mag:.4f}")
+                 else:
+                      st.write("Aucune autre harmonique proéminente trouvée (au-delà du seuil d'affichage).")
+            elif len(prominent_freqs2) == 1 and fundamental_frequency2 != 0:
+                 st.write("Aucune autre harmonique proéminente trouvée (au-delà du seuil d'affichage).")
+            else:
+                 st.write("Aucune harmonique proéminente trouvée.")
+
+
+            # Add download button for prominent frequencies
+            all_prominent_freqs = []
+            if prominent_freqs1:
+                all_prominent_freqs.extend(prominent_freqs1)
+            if prominent_freqs2:
+                all_prominent_freqs.extend(prominent_freqs2)
+
+
+            if all_prominent_freqs:
+                prominent_freqs_df = pd.DataFrame(all_prominent_freqs, columns=['Frequency (Hz)', 'Magnitude'])
+                # Add a column to indicate which signal the frequency belongs to
+                signal_indicators = []
+                if prominent_freqs1:
+                     signal_indicators.extend(['Signal 1'] * len(prominent_freqs1))
+                if prominent_freqs2:
+                     signal_indicators.extend(['Signal 2'] * len(prominent_freqs2))
+
+                prominent_freqs_df['Signal'] = signal_indicators
+
+                csv_data = prominent_freqs_df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="Télécharger les fréquences proéminentes (CSV)",
+                    data=csv_data,
+                    file_name='prominent_frequencies.csv',
+                    mime='text/csv',
+                )
+
+
+        else:
+            st.warning("Pas assez de points de données après application des seuils temporels pour effectuer l'analyse FFT.")
+
 
     except Exception as e:
-        # Catch potential errors during file reading and display an informative error message
-        st.error(f"Erreur lors de la lecture du fichier ou de l'analyse FFT : {e}")
+        st.error(f"Erreur lors de la lecture des fichiers ou de l'analyse FFT : {e}")
+
+else:
+    st.info("Veuillez télécharger les deux fichiers CSV pour commencer l'analyse.")
