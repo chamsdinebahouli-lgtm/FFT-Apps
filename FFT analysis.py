@@ -132,7 +132,7 @@ if uploaded_file is not None:
 
 
                 plt.tight_layout()
-                st.pyplot(fig)
+                st.pyplot(fig) # Use st.pyplot for interactive plot in Streamlit
 
                 # Display fundamental frequency
                 if fundamental_frequency != 0:
@@ -157,6 +157,17 @@ if uploaded_file is not None:
                 else:
                     st.write("Aucune harmonique proéminente trouvée.")
 
+                # Add download button for prominent frequencies
+                if prominent_freqs:
+                    prominent_freqs_df = pd.DataFrame(prominent_freqs, columns=['Frequency (Hz)', 'Magnitude'])
+                    csv_data = prominent_freqs_df.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        label="Télécharger les fréquences proéminentes (CSV)",
+                        data=csv_data,
+                        file_name='prominent_frequencies.csv',
+                        mime='text/csv',
+                    )
+
 
             else:
                 st.warning("Pas assez de points de données après application des seuils temporels pour effectuer l'analyse FFT.")
@@ -164,9 +175,6 @@ if uploaded_file is not None:
         else:
             st.error("Le fichier CSV téléchargé doit contenir les colonnes 'Time' et 'Signal'.")
 
-    except Exception as e:
-        # Catch potential errors during file reading and display an informative error message
-        st.error(f"Erreur lors de la lecture du fichier ou de l'analyse FFT : {e}")
     except Exception as e:
         # Catch potential errors during file reading and display an informative error message
         st.error(f"Erreur lors de la lecture du fichier ou de l'analyse FFT : {e}")
