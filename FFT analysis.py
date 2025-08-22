@@ -256,13 +256,13 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
                  fundamental_index2 = np.argmin(np.abs(freqs_pos2 - fundamental_frequency2))
                  mag_fundamental2 = magnitude_pos2[fundamental_index2]
 
-            if mag_fundamental1 > mag_fundamental2:
+            if mag_fundamental1 < mag_fundamental2:
                 comparison_result = "Signal 1 est potentiellement meilleur (amplitude fondamentale plus élevée)."
-            elif mag_fundamental2 > mag_fundamental1:
+            elif mag_fundamental2 < mag_fundamental1:
                 comparison_result = "Signal 2 est potentiellement meilleur (amplitude fondamentale plus élevée)."
             else:
                 # If fundamental frequencies are similar, compare based on noise power
-                if noise_power1 > noise_power2:
+                if noise_power1 < noise_power2:
                     comparison_result = "Signal 1 est potentiellement meilleur (moins de bruit)."
                 elif noise_power2 < noise_power1:
                     comparison_result = "Signal 2 est potentiellement meilleur (moins de bruit)."
