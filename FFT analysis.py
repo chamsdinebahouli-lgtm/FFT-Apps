@@ -263,11 +263,11 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
             else:
                 # If fundamental frequencies are similar, compare based on noise power
                 if noise_power1 < noise_power2:
-                    comparison_result = "Signal 1 est potentiellement meilleur (moins de bruit)."
+                    comparison_result2 = "Signal 1 est potentiellement meilleur (moins de bruit)."
                 elif noise_power2 < noise_power1:
-                    comparison_result = "Signal 2 est potentiellement meilleur (moins de bruit)."
+                    comparison_result2 = "Signal 2 est potentiellement meilleur (moins de bruit)."
                 else:
-                    comparison_result = "Les signaux sont similaires selon les critères d'analyse."
+                    comparison_result2 = "Les signaux sont similaires selon les critères d'analyse."
         else:
             comparison_result = "Analyse FFT incomplète pour les deux signaux. Comparaison non possible."
 
@@ -386,6 +386,7 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
             # Display comparison result
             st.write("### Conclusion de la comparaison")
             st.write(comparison_result)
+             st.write(comparison_result2)
 
             # Add download button for prominent frequencies
             all_prominent_freqs = []
