@@ -12,6 +12,24 @@ uploaded_file2 = st.file_uploader("Chargez le deuxième fichier CSV", type=["csv
 start_threshold = st.number_input("Exclure les N premières secondes :", min_value=0.0, value=30.0, step=1.0)
 end_threshold = st.number_input("Exclure les N dernières secondes :", min_value=0.0, value=20.0, step=1.0)
 
+# Initialize variables to avoid NameError if files are not uploaded
+df1 = None
+df2 = None
+time_filtered1 = np.array([])
+signal_filtered1 = np.array([])
+fundamental_frequency1 = 0
+prominent_freqs1 = []
+freqs_pos1 = np.array([])
+magnitude_pos1 = np.array([])
+
+time_filtered2 = np.array([])
+signal_filtered2 = np.array([])
+fundamental_frequency2 = 0
+prominent_freqs2 = []
+freqs_pos2 = np.array([])
+magnitude_pos2 = np.array([])
+
+
 if uploaded_file1 is not None and uploaded_file2 is not None:
     try:
         # Read the uploaded CSV files into pandas DataFrames
@@ -48,6 +66,7 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
                  if end_index1 < start_index1:
                       start_index1 = end_index1
 
+
             if end_index1 >= start_index1:
                 time_filtered1 = time1[start_index1:end_index1+1]
                 signal_filtered1 = signal1[start_index1:end_index1+1]
@@ -58,7 +77,7 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
                     dt1 = time_filtered1[1] - time_filtered1[0]
                     fs1 = 1 / dt1
 
-                    signal1_centered = signal_filtered1 - np.mean(signal1_filtered)
+                    signal1_centered = signal_filtered1 - np.mean(signal_filtered1)
                     fft_vals1 = np.fft.fft(signal1_centered)
                     freqs1 = np.fft.fftfreq(len(signal1_centered), d=dt1)
 
