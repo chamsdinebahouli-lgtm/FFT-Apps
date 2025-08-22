@@ -66,7 +66,6 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
                  if end_index1 < start_index1:
                       start_index1 = end_index1
 
-
             if end_index1 >= start_index1:
                 time_filtered1 = time1[start_index1:end_index1+1]
                 signal_filtered1 = signal1[start_index1:end_index1+1]
@@ -211,68 +210,54 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
 
         if (len(time_filtered1) > 1 and len(freqs_pos1) > 0) or (len(time_filtered2) > 1 and len(freqs_pos2) > 0):
             # === Tracés ===
-            fig, axes = plt.subplots(2, 2, figsize=(12, 10)) # 2 rows for two signals, 2 columns for time/freq plots
+            fig, axes = plt.subplots(2, 1, figsize=(10, 8)) # 2 rows for time/freq, 1 column to overlay spectres
 
             # Signal temporel 1
             if len(time_filtered1) > 1:
-                axes[0, 0].plot(time_filtered1, signal_filtered1, label="Signal 1 filtré")
-                axes[0, 0].set_xlabel("Temps (s)")
-                axes[0, 0].set_ylabel("Amplitude")
-                axes[0, 0].set_title("Signal temporel 1 (filtré)")
-                axes[0, 0].grid(True)
+                axes[0].plot(time_filtered1, signal_filtered1, label="Signal 1 filtré")
+                axes[0].set_xlabel("Temps (s)")
+                axes[0].set_ylabel("Amplitude")
+                axes[0].set_title("Signaux temporels (filtrés)") # Combined title for time plots
+                axes[0].grid(True)
             else:
-                 axes[0, 0].set_title("Signal temporel 1 (filtré) - Données manquantes")
-                 axes[0, 0].text(0.5, 0.5, "Données non disponibles", horizontalalignment='center', verticalalignment='center', transform=axes[0, 0].transAxes)
+                 axes[0].set_title("Signal temporel 1 (filtré) - Données manquantes")
+                 axes[0].text(0.5, 0.5, "Données non disponibles", horizontalalignment='center', verticalalignment='center', transform=axes[0].transAxes)
+
+            # Signal temporel 2 (overlayed on the same time plot for comparison)
+            if len(time_filtered2) > 1:
+                 axes[0].plot(time_filtered2, signal_filtered2, label="Signal 2 filtré", color='orange')
+                 axes[0].legend() # Add legend to distinguish signals
 
 
-            # Spectre 1
-            if len(freqs_pos1) > 0:
-                axes[0, 1].stem(freqs_pos1, magnitude_pos1, basefmt=" ")
-                axes[0, 1].set_xlabel("Fréquence (Hz)")
-                axes[0, 1].set_ylabel("Amplitude")
-                axes[0, 1].set_title("Spectre de Fourier (FFT) - Signal 1")
-                axes[0, 1].set_xlim(0, 10)  # Zoom sur les basses fréquences
-                axes[0, 1].grid(True)
+            # Spectre FFT (Overlayed)
+            if len(freqs_pos1) > 0 or len(freqs_pos2) > 0:
+                if len(freqs_pos1) > 0:
+                    axes[1].stem(freqs_pos1, magnitude_pos1, basefmt=" ", linefmt='blue', markerfmt='o', label="Spectre FFT - Signal 1")
+                if len(freqs_pos2) > 0:
+                    axes[1].stem(freqs_pos2, magnitude_pos2, basefmt=" ", linefmt='orange', markerfmt='o', label="Spectre FFT - Signal 2")
+
+                axes[1].set_xlabel("Fréquence (Hz)")
+                axes[1].set_ylabel("Amplitude")
+                axes[1].set_title("Spectre de Fourier (FFT) - Comparaison") # Combined title for FFT spectres
+                axes[1].set_xlim(0, 10)  # Zoom sur les basses fréquences
+                axes[1].grid(True)
+                axes[1].legend() # Add legend to distinguish spectres
 
                 # Add annotations for prominent frequencies for Signal 1
-                if prominent_freqs1:
+                if 'prominent_freqs1' in locals() and prominent_freqs1:
                     for freq, mag in prominent_freqs1:
-                        axes[0, 1].annotate(f'{freq:.2f} Hz', xy=(freq, mag), xytext=(freq + 0.1, mag + 0.01),
-                                     arrowprops=dict(facecolor='black', shrink=0.05), fontsize=9)
-            else:
-                axes[0, 1].set_title("Spectre de Fourier (FFT) - Signal 1 - Données manquantes")
-                axes[0, 1].text(0.5, 0.5, "Données non disponibles", horizontalalignment='center', verticalalignment='center', transform=axes[0, 1].transAxes)
-
-
-            # Signal temporel 2
-            if len(time_filtered2) > 1:
-                 axes[1, 0].plot(time_filtered2, signal_filtered2, label="Signal 2 filtré", color='orange')
-                 axes[1, 0].set_xlabel("Temps (s)")
-                 axes[1, 0].set_ylabel("Amplitude")
-                 axes[1, 0].set_title("Signal temporel 2 (filtré)")
-                 axes[1, 0].grid(True)
-            else:
-                 axes[1, 0].set_title("Signal temporel 2 (filtré) - Données manquantes")
-                 axes[1, 0].text(0.5, 0.5, "Données non disponibles", horizontalalignment='center', verticalalignment='center', transform=axes[1, 0].transAxes)
-
-
-            # Spectre 2
-            if len(freqs_pos2) > 0:
-                axes[1, 1].stem(freqs_pos2, magnitude_pos2, basefmt=" ", linefmt='orange', markerfmt='o', label="Signal 2")
-                axes[1, 1].set_xlabel("Fréquence (Hz)")
-                axes[1, 1].set_ylabel("Amplitude")
-                axes[1, 1].set_title("Spectre de Fourier (FFT) - Signal 2")
-                axes[1, 1].set_xlim(0, 10)  # Zoom sur les basses fréquences
-                axes[1, 1].grid(True)
+                         axes[1].annotate(f'{freq:.2f} Hz', xy=(freq, mag), xytext=(freq + 0.1, mag + 0.01),
+                                      arrowprops=dict(facecolor='blue', shrink=0.05), fontsize=9, color='blue') # Use blue for signal 1 annotations
 
                 # Add annotations for prominent frequencies for Signal 2
-                if prominent_freqs2:
+                if 'prominent_freqs2' in locals() and prominent_freqs2:
                     for freq, mag in prominent_freqs2:
-                        axes[1, 1].annotate(f'{freq:.2f} Hz', xy=(freq, mag), xytext=(freq + 0.1, mag + 0.01),
-                                         arrowprops=dict(facecolor='black', shrink=0.05), fontsize=9, color='orange')
+                         axes[1].annotate(f'{freq:.2f} Hz', xy=(freq, mag), xytext=(freq + 0.1, mag + 0.01),
+                                      arrowprops=dict(facecolor='orange', shrink=0.05), fontsize=9, color='orange') # Use orange for signal 2 annotations
+
             else:
-                axes[1, 1].set_title("Spectre de Fourier (FFT) - Signal 2 - Données manquantes")
-                axes[1, 1].text(0.5, 0.5, "Données non disponibles", horizontalalignment='center', verticalalignment='center', transform=axes[1, 1].transAxes)
+                axes[1].set_title("Spectre de Fourier (FFT) - Données manquantes")
+                axes[1].text(0.5, 0.5, "Données non disponibles", horizontalalignment='center', verticalalignment='center', transform=axes[1].transAxes)
 
 
             plt.tight_layout()
@@ -280,33 +265,35 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
 
             # Display fundamental frequencies
             st.write("### Fréquences Fondamentales")
-            st.write(f"**Signal 1 :** {'{:.4f} Hz'.format(fundamental_frequency1) if fundamental_frequency1 != 0 else 'Non détectée'}")
-            st.write(f"**Signal 2 :** {'{:.4f} Hz'.format(fundamental_frequency2) if fundamental_frequency2 != 0 else 'Non détectée'}")
+            st.write(f"**Signal 1 :** {'{:.4f} Hz'.format(fundamental_frequency1) if 'fundamental_frequency1' in locals() and fundamental_frequency1 != 0 else 'Non détectée'}")
+            st.write(f"**Signal 2 :** {'{:.4f} Hz'.format(fundamental_frequency2) if 'fundamental_frequency2' in locals() and fundamental_frequency2 != 0 else 'Non détectée'}")
 
 
             # Display prominent harmonics
             st.write("### Harmoniques Proéminentes - Signal 1")
-            if len(prominent_freqs1) > 1:
+            if 'prominent_freqs1' in locals() and len(prominent_freqs1) > 1:
+                 # Exclude the first entry if it's the fundamental frequency (already displayed)
                  other_prominent_freqs1 = [f for f in prominent_freqs1 if abs(f[0] - fundamental_frequency1) > 1e-9]
                  if other_prominent_freqs1:
                      for freq, mag in other_prominent_freqs1:
                          st.write(f"- Fréquence: {freq:.4f} Hz, Amplitude: {mag:.4f}")
                  else:
                       st.write("Aucune autre harmonique proéminente trouvée (au-delà du seuil d'affichage).")
-            elif len(prominent_freqs1) == 1 and fundamental_frequency1 != 0:
+            elif 'prominent_freqs1' in locals() and len(prominent_freqs1) == 1 and ('fundamental_frequency1' in locals() and fundamental_frequency1 != 0):
                  st.write("Aucune autre harmonique proéminente trouvée (au-delà du seuil d'affichage).")
             else:
                  st.write("Aucune harmonique proéminente trouvée.")
 
             st.write("### Harmoniques Proéminentes - Signal 2")
-            if len(prominent_freqs2) > 1:
+            if 'prominent_freqs2' in locals() and len(prominent_freqs2) > 1:
+                 # Exclude the first entry if it's the fundamental frequency (already displayed)
                  other_prominent_freqs2 = [f for f in prominent_freqs2 if abs(f[0] - fundamental_frequency2) > 1e-9]
                  if other_prominent_freqs2:
                      for freq, mag in other_prominent_freqs2:
                          st.write(f"- Fréquence: {freq:.4f} Hz, Amplitude: {mag:.4f}")
                  else:
                       st.write("Aucune autre harmonique proéminente trouvée (au-delà du seuil d'affichage).")
-            elif len(prominent_freqs2) == 1 and fundamental_frequency2 != 0:
+            elif 'prominent_freqs2' in locals() and len(prominent_freqs2) == 1 and ('fundamental_frequency2' in locals() and fundamental_frequency2 != 0):
                  st.write("Aucune autre harmonique proéminente trouvée (au-delà du seuil d'affichage).")
             else:
                  st.write("Aucune harmonique proéminente trouvée.")
@@ -314,19 +301,18 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
 
             # Add download button for prominent frequencies
             all_prominent_freqs = []
-            if prominent_freqs1:
+            if 'prominent_freqs1' in locals() and prominent_freqs1:
                 all_prominent_freqs.extend(prominent_freqs1)
-            if prominent_freqs2:
+            if 'prominent_freqs2' in locals() and prominent_freqs2:
                 all_prominent_freqs.extend(prominent_freqs2)
-
 
             if all_prominent_freqs:
                 prominent_freqs_df = pd.DataFrame(all_prominent_freqs, columns=['Frequency (Hz)', 'Magnitude'])
                 # Add a column to indicate which signal the frequency belongs to
                 signal_indicators = []
-                if prominent_freqs1:
+                if 'prominent_freqs1' in locals() and prominent_freqs1:
                      signal_indicators.extend(['Signal 1'] * len(prominent_freqs1))
-                if prominent_freqs2:
+                if 'prominent_freqs2' in locals() and prominent_freqs2:
                      signal_indicators.extend(['Signal 2'] * len(prominent_freqs2))
 
                 prominent_freqs_df['Signal'] = signal_indicators
