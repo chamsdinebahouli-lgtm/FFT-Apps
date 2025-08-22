@@ -66,6 +66,7 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
                  if end_index1 < start_index1:
                       start_index1 = end_index1
 
+
             if end_index1 >= start_index1:
                 time_filtered1 = time1[start_index1:end_index1+1]
                 signal_filtered1 = signal1[start_index1:end_index1+1]
