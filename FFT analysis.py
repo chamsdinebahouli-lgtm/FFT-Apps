@@ -180,7 +180,7 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
                     dt2 = time_filtered2[1] - time_filtered2[0]
                     fs2 = 1 / dt2
 
-                    signal2_centered = signal_filtered2 - np.mean(signal2_filtered)
+                    signal2_centered = signal_filtered2 - np.mean(signal_filtered2)
                     fft_vals2 = np.fft.fft(signal2_centered)
                     freqs2 = np.fft.fftfreq(len(signal2_centered), d=dt2)
 
@@ -349,6 +349,11 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
             st.write(f"**Signal 1 :** {'{:.4f} Hz'.format(fundamental_frequency1) if fundamental_frequency1 != 0 else 'Non détectée'}")
             st.write(f"**Signal 2 :** {'{:.4f} Hz'.format(fundamental_frequency2) if fundamental_frequency2 != 0 else 'Non détectée'}")
 
+            # Display noise power
+            st.write("### Puissance de Bruit (1-10 Hz, hors fondamentale)")
+            st.write(f"**Signal 1 :** {noise_power1:.4f}")
+            st.write(f"**Signal 2 :** {noise_power2:.4f}")
+
 
             # Display prominent harmonics
             st.write("### Harmoniques Proéminentes - Signal 1")
@@ -377,6 +382,10 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
             else:
                  st.write("Aucune harmonique proéminente trouvée.")
 
+
+            # Display comparison result
+            st.write("### Conclusion de la comparaison")
+            st.write(comparison_result)
 
             # Add download button for prominent frequencies
             all_prominent_freqs = []
