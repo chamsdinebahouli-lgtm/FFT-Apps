@@ -6,10 +6,7 @@ import io
 
 st.title("Application d'analyse FFT de deux signaux")
 
-# --- Upload CSVs ---
-uploaded_file1 = st.file_uploader("Chargez le premier fichier CSV", type=["csv"])
-uploaded_file2 = st.file_uploader("Chargez le deuxième fichier CSV", type=["csv"])
-
+# --- Paramètres utilisateurs visibles dès le lancement ---
 start_threshold = st.number_input("Exclure les N premières secondes :", min_value=0.0, value=30.0, step=1.0)
 end_threshold = st.number_input("Exclure les N dernières secondes :", min_value=0.0, value=20.0, step=1.0)
 
@@ -17,6 +14,10 @@ fixed_fundamental = st.number_input(
     "Forcer la fréquence fondamentale (Hz, mettre 0 pour auto)",
     min_value=0.0, value=0.0, step=1.0
 )
+
+# --- Upload CSVs ---
+uploaded_file1 = st.file_uploader("Chargez le premier fichier CSV", type=["csv"])
+uploaded_file2 = st.file_uploader("Chargez le deuxième fichier CSV", type=["csv"])
 
 # --- Initialize variables ---
 time_filtered1, signal_filtered1 = np.array([]), np.array([])
@@ -30,6 +31,7 @@ SNR1 = SNR2 = THD1 = THD2 = 0
 comparison_result = "Aucune comparaison n'a pu être effectuée."
 best_signal = "Non déterminé"
 
+# --- Vérification des fichiers uploadés ---
 if uploaded_file1 is not None and uploaded_file2 is not None:
     try:
         # --- Read CSVs ---
@@ -174,24 +176,6 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
             st.write("#### Harmoniques - Signal 2")
             harmo_df2 = pd.DataFrame(harmonics2, columns=["Ordre", "Fréquence (Hz)", "Amplitude"])
             st.dataframe(harmo_df2)
-
-        # Export CSV des résultats principaux
-        results_df = pd.DataFrame({
-            "Signal": ["Signal 1", "Signal 2"],
-            "Fréquence_fondamentale_Hz": [fundamental_frequency1, fundamental_frequency2],
-            "SNR_dB": [SNR1, SNR2],
-            "THD_dB": [THD1, THD2],
-            "Puissance_bruit": [noise_power1, noise_power2]
-        })
-
-        csv_buffer = io.StringIO()
-        results_df.to_csv(csv_buffer, index=False, sep=";")
-        st.download_button(
-            label="📥 Télécharger les résultats principaux (CSV)",
-            data=csv_buffer.getvalue(),
-            file_name="resultats_signaux.csv",
-            mime="text/csv"
-        )
 
     except Exception as e:
         st.error(f"Erreur lors de l'analyse : {e}")
