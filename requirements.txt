@@ -3,4 +3,5 @@ numpy
 pandas
 
 matplotlib
-pip install fpdf
+fpdf
+
