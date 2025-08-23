@@ -191,3 +191,30 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
 
 else:
     st.info("Veuillez télécharger les deux fichiers CSV pour commencer l'analyse.")
+
+"""Retourne un DataFrame avec les n premières harmoniques détectées"""
+    harmonics_data = []
+    if f0 <= 0:
+        return pd.DataFrame()
+
+    for k in range(1, n_harmonics+1):
+        target_freq = k * f0
+        # Recherche du pic le plus proche de k*f0
+        idx = np.argmin(np.abs(freqs - target_freq))
+        freq_val = freqs[idx]
+        amp_val = magnitudes[idx]
+        rel_db = 20*np.log10(amp_val / magnitudes[np.argmax(magnitudes)]) if amp_val > 0 else -np.inf
+        harmonics_data.append([k, freq_val, amp_val, rel_db])
+
+    return pd.DataFrame(harmonics_data, columns=["Harmonique (k)", "Fréquence (Hz)", "Amplitude", "Relatif (dB)"])
+
+# Extraction des 5 premières harmoniques
+harmonics_df1 = extract_harmonics(freqs_pos1, magnitude_pos1, fundamental_frequency1, n_harmonics=5)
+harmonics_df2 = extract_harmonics(freqs_pos2, magnitude_pos2, fundamental_frequency2, n_harmonics=5)
+
+# Affichage Streamlit
+st.subheader("Harmoniques Signal 1")
+st.dataframe(harmonics_df1)
+
+st.subheader("Harmoniques Signal 2")
+st.dataframe(harmonics_df2)
