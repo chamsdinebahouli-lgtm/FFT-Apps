@@ -351,7 +351,7 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
             st.write(f"**Signal 2 :** {'{:.4f} Hz'.format(fundamental_frequency2) if fundamental_frequency2 != 0 else 'Non détectée'}")
 
             # Display noise power
-            st.write("### Puissance de Bruit (1-10 Hz, hors fondamentale)")
+            st.write("### Puissance de Bruit (0-10 Hz, hors fondamentale)")
             st.write(f"**Signal 1 :** {noise_power1:.4f}")
             st.write(f"**Signal 2 :** {noise_power2:.4f}")
 
