@@ -15,7 +15,7 @@ uploaded_file2 = st.file_uploader("Chargez le deuxième fichier CSV", type=["csv
 start_threshold = st.number_input("Exclure les N premières secondes :", min_value=0.0, value=30.0, step=1.0)
 end_threshold = st.number_input("Exclure les N dernières secondes :", min_value=0.0, value=20.0, step=1.0)
 
-# Variables initiales
+# Initialisation des variables
 df1 = df2 = None
 time_filtered1 = signal_filtered1 = np.array([])
 time_filtered2 = signal_filtered2 = np.array([])
@@ -115,10 +115,6 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
         else:
             st.error("Le fichier CSV du Signal 2 doit contenir 'Time' et 'Signal'.")
 
-        # --- Extraction harmoniques ---
-        harmonics_df1 = extract_harmonics(freqs_pos1, magnitude_pos1, fundamental_frequency1)
-        harmonics_df2 = extract_harmonics(freqs_pos2, magnitude_pos2, fundamental_frequency2)
-
         # --- Comparaison SNR + THD ---
         if len(freqs_pos1) > 0 and len(freqs_pos2) > 0:
             if SNR1 > SNR2 and THD1 < THD2:
@@ -154,5 +150,4 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
 
         # --- Résultats numériques ---
         st.subheader("Résultats numériques")
-        st.write(f"**Signal 1 :** f₀ = {fundamental_frequency1:.4f} Hz, "
-                
+        st.write(f"**Signal 1 :** f₀ = {fundamental_frequency1:.4f} Hz, SNR
