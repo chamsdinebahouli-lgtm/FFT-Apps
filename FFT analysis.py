@@ -270,7 +270,7 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
                 else:
                     comparison_result2 = "Les signaux sont similaires selon les critères d'analyse."
         else:
-            comparison_result = "Analyse FFT incomplète pour les deux signaux. Comparaison non possible."
+            comparison_result2 = "Analyse FFT incomplète pour les deux signaux. Comparaison non possible."
 
 
         # --- Display Results ---
