@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from fpdf import FPDF
+import tempfile
 import io
 
 st.title("Application d'analyse FFT de deux signaux avec rapport PDF")
@@ -29,12 +30,10 @@ def analyze_signal(time, signal, fixed_fundamental=0.0):
     fundamental_freq = 0
     harmonics = []
 
-    # Cas fréquence forcée
     if fixed_fundamental > 0:
         fundamental_freq = fixed_fundamental
         idx = np.argmin(np.abs(freqs_pos - fundamental_freq))
         harmonics.append((1, freqs_pos[idx], magnitude_pos[idx]))
-    # Détection auto
     elif len(magnitude_pos) > 1:
         idx = np.argmax(magnitude_pos[1:]) + 1
         fundamental_freq = freqs_pos[idx]
@@ -56,85 +55,93 @@ def analyze_signal(time, signal, fixed_fundamental=0.0):
 
     return freqs_pos, magnitude_pos, fundamental_freq, harmonics, noise_power, SNR, THD
 
-# --- Traitement et affichage ---
+# --- Traitement des fichiers ---
 if uploaded_file1 and uploaded_file2:
-    df1 = pd.read_csv(uploaded_file1, decimal=',')
-    df2 = pd.read_csv(uploaded_file2, decimal=',')
+    try:
+        df1 = pd.read_csv(uploaded_file1, decimal=',')
+        df2 = pd.read_csv(uploaded_file2, decimal=',')
 
-    time1, signal1 = df1['Time'].values, df1['Signal'].values
-    time2, signal2 = df2['Time'].values, df2['Signal'].values
+        time1, signal1 = df1['Time'].values, df1['Signal'].values
+        time2, signal2 = df2['Time'].values, df2['Signal'].values
 
-    t_start1, t_end1 = start_threshold, time1[-1]-end_threshold
-    start_idx1, end_idx1 = np.argmax(time1>=t_start1), len(time1)-1 - np.argmax(time1[::-1]<=t_end1)
-    time_filtered1, signal_filtered1 = time1[start_idx1:end_idx1+1], signal1[start_idx1:end_idx1+1]
-    freqs_pos1, magnitude_pos1, fundamental_frequency1, harmonics1, noise_power1, SNR1, THD1 = analyze_signal(time_filtered1, signal_filtered1, fixed_fundamental)
+        # Filtrage temporel
+        t_start1, t_end1 = start_threshold, time1[-1]-end_threshold
+        start_idx1, end_idx1 = np.argmax(time1>=t_start1), len(time1)-1 - np.argmax(time1[::-1]<=t_end1)
+        time_filtered1, signal_filtered1 = time1[start_idx1:end_idx1+1], signal1[start_idx1:end_idx1+1]
+        freqs_pos1, magnitude_pos1, fundamental_frequency1, harmonics1, noise_power1, SNR1, THD1 = analyze_signal(time_filtered1, signal_filtered1, fixed_fundamental)
 
-    t_start2, t_end2 = start_threshold, time2[-1]-end_threshold
-    start_idx2, end_idx2 = np.argmax(time2>=t_start2), len(time2)-1 - np.argmax(time2[::-1]<=t_end2)
-    time_filtered2, signal_filtered2 = time2[start_idx2:end_idx2+1], signal2[start_idx2:end_idx2+1]
-    freqs_pos2, magnitude_pos2, fundamental_frequency2, harmonics2, noise_power2, SNR2, THD2 = analyze_signal(time_filtered2, signal_filtered2, fixed_fundamental)
+        t_start2, t_end2 = start_threshold, time2[-1]-end_threshold
+        start_idx2, end_idx2 = np.argmax(time2>=t_start2), len(time2)-1 - np.argmax(time2[::-1]<=t_end2)
+        time_filtered2, signal_filtered2 = time2[start_idx2:end_idx2+1], signal2[start_idx2:end_idx2+1]
+        freqs_pos2, magnitude_pos2, fundamental_frequency2, harmonics2, noise_power2, SNR2, THD2 = analyze_signal(time_filtered2, signal_filtered2, fixed_fundamental)
 
-    # --- Affichage graphique ---
-    fig, axes = plt.subplots(2,2, figsize=(12,10))
-    axes[0,0].plot(time_filtered1, signal_filtered1)
-    axes[0,0].set_title("Signal temporel 1")
-    axes[0,1].stem(freqs_pos1, magnitude_pos1, basefmt=" ")
-    axes[0,1].set_xlim(0,10)
-    axes[0,1].set_title("FFT - Signal 1")
-    axes[1,0].plot(time_filtered2, signal_filtered2, color='orange')
-    axes[1,0].set_title("Signal temporel 2")
-    axes[1,1].stem(freqs_pos2, magnitude_pos2, basefmt=" ", linefmt='orange')
-    axes[1,1].set_xlim(0,10)
-    axes[1,1].set_title("FFT - Signal 2")
-    plt.tight_layout()
-    st.pyplot(fig)
+        # --- Affichage graphique ---
+        fig, axes = plt.subplots(2,2, figsize=(12,10))
+        axes[0,0].plot(time_filtered1, signal_filtered1)
+        axes[0,0].set_title("Signal temporel 1")
+        axes[0,1].stem(freqs_pos1, magnitude_pos1, basefmt=" ")
+        axes[0,1].set_xlim(0,10)
+        axes[0,1].set_title("FFT - Signal 1")
+        axes[1,0].plot(time_filtered2, signal_filtered2, color='orange')
+        axes[1,0].set_title("Signal temporel 2")
+        axes[1,1].stem(freqs_pos2, magnitude_pos2, basefmt=" ", linefmt='orange')
+        axes[1,1].set_xlim(0,10)
+        axes[1,1].set_title("FFT - Signal 2")
+        plt.tight_layout()
+        st.pyplot(fig)
 
-    # --- Comparaison ---
-    if SNR1>SNR2 and THD1<THD2:
-        best_signal="Signal 1"
-        comparison_result="Signal 1 globalement meilleur"
-    elif SNR2>SNR1 and THD2<THD1:
-        best_signal="Signal 2"
-        comparison_result="Signal 2 globalement meilleur"
-    else:
-        best_signal="Égalité"
-        comparison_result="SNR et THD comparables"
+        # --- Comparaison ---
+        if SNR1>SNR2 and THD1<THD2:
+            best_signal="Signal 1"
+            comparison_result="Signal 1 globalement meilleur"
+        elif SNR2>SNR1 and THD2<THD1:
+            best_signal="Signal 2"
+            comparison_result="Signal 2 globalement meilleur"
+        else:
+            best_signal="Égalité"
+            comparison_result="SNR et THD comparables"
 
-    st.write(f"### Comparaison : {comparison_result} (Signal le plus propre : {best_signal})")
+        st.write(f"### Comparaison : {comparison_result} (Signal le plus propre : {best_signal})")
 
-    # --- Génération PDF en mémoire ---
-    if st.button("📄 Générer et télécharger rapport PDF"):
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", 'B', 16)
-        pdf.cell(0,10,"Rapport FFT - Analyse des signaux", ln=1, align='C')
-        pdf.set_font("Arial", '', 12)
-        pdf.ln(5)
-        pdf.cell(0,10,f"Paramètres : Start={start_threshold}s, End={end_threshold}s, Fréquence forcée={fixed_fundamental}Hz", ln=1)
+        # --- Bouton PDF ---
+        if st.button("📄 Générer et télécharger rapport PDF"):
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", 'B', 16)
+            pdf.cell(0, 10, "Rapport FFT - Analyse des signaux", ln=1, align='C')
+            pdf.set_font("Arial", '', 12)
+            pdf.ln(5)
+            pdf.cell(0, 10, f"Paramètres : Start={start_threshold}s, End={end_threshold}s, Fréquence forcée={fixed_fundamental}Hz", ln=1)
 
-        # Ajouter graphique
-        buf = io.BytesIO()
-        fig.savefig(buf, format='png')
-        buf.seek(0)
-        pdf.image(buf, x=10, y=40, w=190)
+            # Sauvegarde graphique dans un fichier temporaire
+            with tempfile.NamedTemporaryFile(suffix=".png") as tmpfile:
+                fig.savefig(tmpfile.name, format='png')
+                tmpfile.flush()
+                pdf.image(tmpfile.name, x=10, y=40, w=190)
 
-        # Ajouter tableau des indicateurs et harmoniques
-        pdf.add_page()
-        pdf.set_font("Arial", 'B', 14)
-        pdf.cell(0,10,"Indicateurs et harmoniques", ln=1)
-        pdf.set_font("Arial", '', 12)
-        pdf.ln(5)
-        for i, (fund, SNRv, THDv, noise, harms) in enumerate([
-            (fundamental_frequency1, SNR1, THD1, noise_power1, harmonics1),
-            (fundamental_frequency2, SNR2, THD2, noise_power2, harmonics2)
-        ], start=1):
-            pdf.cell(0,10,f"Signal {i}: Fréquence fondamentale={fund:.4f}Hz, SNR={SNRv:.2f}dB, THD={THDv:.2f}dB, Bruit={noise:.4f}", ln=1)
-            pdf.cell(0,10,"Harmoniques (Ordre, Fréquence, Amplitude):", ln=1)
-            for h in harms:
-                pdf.cell(0,8,f"{h[0]}, {h[1]:.4f} Hz, {h[2]:.4f}", ln=1)
-            pdf.ln(3)
+            # Tableau des indicateurs et harmoniques
+            pdf.add_page()
+            pdf.set_font("Arial", 'B', 14)
+            pdf.cell(0, 10, "Indicateurs et harmoniques", ln=1)
+            pdf.set_font("Arial", '', 12)
+            pdf.ln(5)
+            for i, (fund, SNRv, THDv, noise, harms) in enumerate([
+                (fundamental_frequency1, SNR1, THD1, noise_power1, harmonics1),
+                (fundamental_frequency2, SNR2, THD2, noise_power2, harmonics2)
+            ], start=1):
+                pdf.cell(0, 10, f"Signal {i}: Fréquence fondamentale={fund:.4f}Hz, SNR={SNRv:.2f}dB, THD={THDv:.2f}dB, Bruit={noise:.4f}", ln=1)
+                pdf.cell(0, 10, "Harmoniques (Ordre, Fréquence, Amplitude):", ln=1)
+                for h in harms:
+                    pdf.cell(0, 8, f"{h[0]}, {h[1]:.4f} Hz, {h[2]:.4f}", ln=1)
+                pdf.ln(3)
 
-        pdf_buffer = io.BytesIO()
-        pdf.output(pdf_buffer)
-        pdf_buffer.seek(0)
-        st.download_button("⬇️ Télécharger le rapport PDF", data=pdf_buffer, file_name="rapport_fft.pdf", mime="application/pdf")
+            # PDF en mémoire pour téléchargement
+            pdf_buffer = io.BytesIO()
+            pdf.output(pdf_buffer)
+            pdf_buffer.seek(0)
+            st.download_button("⬇️ Télécharger le rapport PDF", data=pdf_buffer, file_name="rapport_fft.pdf", mime="application/pdf")
+
+    except Exception as e:
+        st.error(f"Erreur lors de l'analyse : {e}")
+else:
+    st.info("Veuillez télécharger les deux fichiers CSV pour commencer l'analyse.")
