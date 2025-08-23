@@ -155,4 +155,4 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
         # --- Résultats numériques ---
         st.subheader("Résultats numériques")
         st.write(f"**Signal 1 :** f₀ = {fundamental_frequency1:.4f} Hz, "
-                 f"S
+                
