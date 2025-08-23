@@ -168,6 +168,24 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
         st.write("### Classement automatique")
         st.write(f"➡️ **Signal le plus propre : {best_signal}**")
 
+        # --- Export CSV des résultats ---
+        results_df = pd.DataFrame({
+            "Signal": ["Signal 1", "Signal 2"],
+            "Fréquence_fondamentale_Hz": [fundamental_frequency1, fundamental_frequency2],
+            "SNR_dB": [SNR1, SNR2],
+            "THD_dB": [THD1, THD2],
+            "Puissance_bruit": [noise_power1, noise_power2]
+        })
+
+        csv_buffer = io.StringIO()
+        results_df.to_csv(csv_buffer, index=False, sep=";")
+        st.download_button(
+            label="📥 Télécharger les résultats (CSV)",
+            data=csv_buffer.getvalue(),
+            file_name="resultats_signaux.csv",
+            mime="text/csv"
+        )
+
     except Exception as e:
         st.error(f"Erreur lors de l'analyse : {e}")
 
