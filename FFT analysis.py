@@ -42,19 +42,21 @@ def analyze_signal(time, signal, fixed_fundamental=0.0):
 
     if fixed_fundamental > 0:
         fundamental_freq = fixed_fundamental
-        idx = np.argmin(np.abs(freqs_pos - fundamental_freq))
-        harmonics.append((1, freqs_pos[idx], magnitude_pos[idx]))
+        # Interpolation pour amplitude exacte
+        magnitude_interp = np.interp(fundamental_freq, freqs_pos, magnitude_pos)
+        harmonics.append((1, fundamental_freq, magnitude_interp))
     elif len(magnitude_pos) > 1:
         idx = np.argmax(magnitude_pos[1:]) + 1
         fundamental_freq = freqs_pos[idx]
-        harmonics.append((1, freqs_pos[idx], magnitude_pos[idx]))
+        harmonics.append((1, fundamental_freq, magnitude_pos[idx]))
 
     # 10 premiers harmoniques
     if fundamental_freq > 0:
         for n in range(2, 11):
             target = n * fundamental_freq
-            idx = np.argmin(np.abs(freqs_pos - target))
-            harmonics.append((n, freqs_pos[idx], magnitude_pos[idx]))
+            if target <= freqs_pos[-1]:
+                magnitude_interp = np.interp(target, freqs_pos, magnitude_pos)
+                harmonics.append((n, target, magnitude_interp))
 
     # Bruit (0-10 Hz, hors harmoniques)
     noise_power = sum([m**2 for f,m in zip(freqs_pos, magnitude_pos) if 0<=f<=10 and all(abs(f-h[1])>1e-6 for h in harmonics)])
