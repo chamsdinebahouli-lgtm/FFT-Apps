@@ -346,8 +346,8 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
 
             # Display fundamental frequencies
             st.write("### Fréquences Fondamentales")
-            st.write(f"**Signal 1 :** {'{:.4f} Hz'.format(fundamental_frequency1) if fundamental_frequency1 != 0 else 'Non détectée'}")
-            st.write(f"**Signal 2 :** {'{:.4f} Hz'.format(fundamental_frequency2) if fundamental_frequency2 != 0 else 'Non détectée'}")
+            st.write(f"**Signal 1 :** {'{:.4f} Hz'.format(fundamental_frequency1) if fundamental_frequency1 != 0 else 'Non détectée'} (Amplitude : {'{:.4f}'.format(mag_fundamental1) if fundamental_frequency1 != 0 else 'N/A'})")
+            st.write(f"**Signal 2 :** {'{:.4f} Hz'.format(fundamental_frequency2) if fundamental_frequency2 != 0 else 'Non détectée'} (Amplitude : {'{:.4f}'.format(mag_fundamental2) if fundamental_frequency2 != 0 else 'N/A'})")
 
             # Display noise power
             st.write("### Puissance de Bruit (0-10 Hz, hors fondamentale)")
