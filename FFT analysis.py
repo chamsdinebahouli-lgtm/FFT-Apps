@@ -1,3 +1,4 @@
+
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -32,7 +33,6 @@ magnitude_pos2 = np.array([])
 noise_power2 = 0
 
 comparison_result = "Aucune comparaison n'a pu être effectuée."
-comparison_result2 = "Aucune comparaison n'a pu être effectuée."
 
 
 if uploaded_file1 is not None and uploaded_file2 is not None:
@@ -259,18 +259,18 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
 
             if mag_fundamental1 < mag_fundamental2:
                 comparison_result = "Signal 1 est potentiellement meilleur (amplitude fondamentale plus basse)."
-            elif mag_fundamental < mag_fundamental1:
+            elif mag_fundamental2 < mag_fundamental1:
                 comparison_result = "Signal 2 est potentiellement meilleur (amplitude fondamentale plus basse)."
             else:
                 # If fundamental frequencies are similar, compare based on noise power
                 if noise_power1 < noise_power2:
-                    comparison_result2 = "Signal 1 est potentiellement meilleur (moins de bruit)."
+                    comparison_result = "Signal 1 est potentiellement meilleur (moins de bruit)."
                 elif noise_power2 < noise_power1:
-                    comparison_result2 = "Signal 2 est potentiellement meilleur (moins de bruit)."
+                    comparison_result = "Signal 2 est potentiellement meilleur (moins de bruit)."
                 else:
-                    comparison_result2 = "Les signaux sont similaires selon les critères d'analyse."
+                    comparison_result = "Les signaux sont similaires selon les critères d'analyse."
         else:
-            comparison_result2 = "Analyse FFT incomplète pour les deux signaux. Comparaison non possible."
+            comparison_result = "Analyse FFT incomplète pour les deux signaux. Comparaison non possible."
 
 
         # --- Display Results ---
@@ -387,7 +387,7 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
             # Display comparison result
             st.write("### Conclusion de la comparaison")
             st.write(comparison_result)
-            st.write(comparison_result2)
+          
 
             # Add download button for prominent frequencies
             all_prominent_freqs = []
