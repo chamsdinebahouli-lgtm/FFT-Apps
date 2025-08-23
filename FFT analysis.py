@@ -24,6 +24,7 @@ magnitude_pos1, magnitude_pos2 = np.array([]), np.array([])
 noise_power1 = noise_power2 = 0
 SNR1 = SNR2 = THD1 = THD2 = 0
 comparison_result = "Aucune comparaison n'a pu être effectuée."
+best_signal = "Non déterminé"
 
 if uploaded_file1 is not None and uploaded_file2 is not None:
     try:
@@ -43,7 +44,6 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
                 return None
 
             dt = time[1] - time[0]
-            fs = 1 / dt
             signal_centered = signal - np.mean(signal)
             fft_vals = np.fft.fft(signal_centered)
             freqs = np.fft.fftfreq(len(signal_centered), d=dt)
@@ -115,15 +115,20 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
         if len(freqs_pos1) > 0 and len(freqs_pos2) > 0:
             if SNR1 > SNR2 and THD1 < THD2:
                 comparison_result = "✅ Signal 1 est globalement moins perturbé (meilleur SNR et plus faible THD)."
+                best_signal = "Signal 1"
             elif SNR2 > SNR1 and THD2 < THD1:
                 comparison_result = "✅ Signal 2 est globalement moins perturbé (meilleur SNR et plus faible THD)."
+                best_signal = "Signal 2"
             else:
                 if SNR1 > SNR2:
                     comparison_result = "⚖️ Signal 1 a un meilleur SNR (moins de bruit), mais Signal 2 a une distorsion plus faible (THD)."
+                    best_signal = "Signal 1 (si le bruit est plus critique)"
                 elif SNR2 > SNR1:
                     comparison_result = "⚖️ Signal 2 a un meilleur SNR (moins de bruit), mais Signal 1 a une distorsion plus faible (THD)."
+                    best_signal = "Signal 2 (si le bruit est plus critique)"
                 else:
                     comparison_result = "ℹ️ Les deux signaux présentent des perturbations similaires (SNR et THD comparables)."
+                    best_signal = "Égalité"
 
         # --- Affichage ---
         st.subheader("Résultats de l'analyse")
@@ -154,11 +159,14 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
 
         # Résultats numériques
         st.write("### Indicateurs de qualité du signal")
-        st.write(f"**Signal 1 :** SNR = {SNR1:.2f} dB, THD = {THD1:.2f} dB, Bruit = {noise_power1:.4f}")
-        st.write(f"**Signal 2 :** SNR = {SNR2:.2f} dB, THD = {THD2:.2f} dB, Bruit = {noise_power2:.4f}")
+        st.write(f"**Signal 1 :** Fréquence fondamentale = {fundamental_frequency1:.4f} Hz, SNR = {SNR1:.2f} dB, THD = {THD1:.2f} dB, Bruit = {noise_power1:.4f}")
+        st.write(f"**Signal 2 :** Fréquence fondamentale = {fundamental_frequency2:.4f} Hz, SNR = {SNR2:.2f} dB, THD = {THD2:.2f} dB, Bruit = {noise_power2:.4f}")
 
         st.write("### Conclusion de la comparaison")
         st.write(comparison_result)
+
+        st.write("### Classement automatique")
+        st.write(f"➡️ **Signal le plus propre : {best_signal}**")
 
     except Exception as e:
         st.error(f"Erreur lors de l'analyse : {e}")
