@@ -1,20 +1,3 @@
-Parfait 😃 Je vais te fournir **le code complet final** de ton application Streamlit, intégrant :
-
-* FFT et extraction de la fréquence fondamentale pour les 2 signaux
-* Calcul du bruit, SNR, THD
-* Extraction et affichage des 5 premières harmoniques pour chaque signal
-* Graphiques des signaux et spectres
-* Export **CSV** et **Excel** avec :
-
-  * Feuille Résultats (SNR, THD, f₀, bruit)
-  * Feuilles Spectre Signal 1 & 2
-  * Feuilles Harmoniques Signal 1 & 2
-
----
-
-### ✅ Code complet final
-
-```python
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -168,4 +151,3 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
         # --- Résultats numériques ---
         st.subheader("Résultats numériques")
         st.write(f"**Signal 1 :** f₀ = {fundamental_frequency1:.4f} Hz, SNR
-```
