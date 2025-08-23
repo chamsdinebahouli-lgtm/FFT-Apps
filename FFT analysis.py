@@ -1,4 +1,3 @@
-
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -357,28 +356,24 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
 
 
             # Display prominent harmonics
-            st.write("### Harmoniques Proéminentes - Signal 1")
-            if len(prominent_freqs1) > 1:
-                 other_prominent_freqs1 = [f for f in prominent_freqs1 if abs(f[0] - fundamental_frequency1) > 1e-9]
-                 if other_prominent_freqs1:
-                     for freq, mag in other_prominent_freqs1:
-                         st.write(f"- Fréquence: {freq:.4f} Hz, Amplitude: {mag:.4f}")
-                 else:
-                      st.write("Aucune autre harmonique proéminente trouvée (au-delà du seuil d'affichage).")
-            elif len(prominent_freqs1) == 1 and fundamental_frequency1 != 0:
-                 st.write("Aucune autre harmonique proéminente trouvée (au-delà du seuil d'affichage).")
-            else:
-                 st.write("Aucune harmonique proéminente trouvée.")
+            st.write("### Harmoniques Proéminentes")
+            if len(prominent_freqs1) > 1 or len(prominent_freqs2) > 1:
+                prominent_data = []
+                if len(prominent_freqs1) > 1:
+                    for freq, mag in prominent_freqs1:
+                        if abs(freq - fundamental_frequency1) > 1e-9:
+                            prominent_data.append({'Signal': 'Signal 1', 'Fréquence (Hz)': freq, 'Amplitude': mag})
+                if len(prominent_freqs2) > 1:
+                     for freq, mag in prominent_freqs2:
+                         if abs(freq - fundamental_frequency2) > 1e-9:
+                             prominent_data.append({'Signal': 'Signal 2', 'Fréquence (Hz)': freq, 'Amplitude': mag})
 
-            st.write("### Harmoniques Proéminentes - Signal 2")
-            if len(prominent_freqs2) > 1:
-                 other_prominent_freqs2 = [f for f in prominent_freqs2 if abs(f[0] - fundamental_frequency2) > 1e-9]
-                 if other_prominent_freqs2:
-                     for freq, mag in other_prominent_freqs2:
-                         st.write(f"- Fréquence: {freq:.4f} Hz, Amplitude: {mag:.4f}")
-                 else:
-                      st.write("Aucune autre harmonique proéminente trouvée (au-delà du seuil d'affichage).")
-            elif len(prominent_freqs2) == 1 and fundamental_frequency2 != 0:
+                if prominent_data:
+                    prominent_df = pd.DataFrame(prominent_data)
+                    st.dataframe(prominent_df)
+                else:
+                    st.write("Aucune autre harmonique proéminente trouvée (au-delà du seuil d'affichage).")
+            elif (len(prominent_freqs1) == 1 and fundamental_frequency1 != 0) or (len(prominent_freqs2) == 1 and fundamental_frequency2 != 0):
                  st.write("Aucune autre harmonique proéminente trouvée (au-delà du seuil d'affichage).")
             else:
                  st.write("Aucune harmonique proéminente trouvée.")
@@ -387,7 +382,7 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
             # Display comparison result
             st.write("### Conclusion de la comparaison")
             st.write(comparison_result)
-          
+
 
             # Add download button for prominent frequencies
             all_prominent_freqs = []
