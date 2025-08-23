@@ -387,7 +387,7 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
             # Display comparison result
             st.write("### Conclusion de la comparaison")
             st.write(comparison_result)
-             st.write(comparison_result2)
+            st.write(comparison_result2)
 
             # Add download button for prominent frequencies
             all_prominent_freqs = []
