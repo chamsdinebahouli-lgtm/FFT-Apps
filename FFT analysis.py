@@ -9,12 +9,12 @@ st.title("Application d'analyse FFT de deux signaux")
 # --- Encadré explicatif ---
 st.subheader("💡 Définitions des indicateurs de qualité du signal")
 st.markdown("""
-- **Fréquence fondamentale (Hz)** : la fréquence principale du signal correspondant au mouvement moteur. Une amplitude correcte indique un mouvement régulier.
-- **Amplitude fondamentale** : l’intensité de la fréquence principale. Trop faible → signal noyé dans le bruit; trop élevée → possible vibration ou surcharge.
-- **SNR (Signal-to-Noise Ratio, dB)** : rapport entre la puissance du signal fondamental et le bruit. Plus le SNR est élevé, plus le signal est « propre ».
-- **THD (Total Harmonic Distortion, dB)** : mesure de la distorsion du signal via les harmoniques. Plus le THD est faible, moins le signal est déformé.
-- **Bruit (0-10 Hz hors harmoniques)** : énergie du signal hors des harmoniques principales, indicateur de perturbations ou interférences.
-- **Score global** : combinaison pondérée de SNR, THD, bruit et amplitude fondamentale. Permet de comparer facilement la qualité des signaux.
+- **Fréquence fondamentale (Hz)** : fréquence principale du signal correspondant au mouvement moteur.
+- **Amplitude fondamentale** : intensité de la fréquence principale.
+- **SNR (Signal-to-Noise Ratio, dB)** : rapport entre la puissance du signal fondamental et le bruit. Plus SNR élevé → signal propre.
+- **THD (Total Harmonic Distortion, dB)** : mesure de la distorsion du signal via les harmoniques. Plus THD faible → signal moins déformé.
+- **Bruit (0-10 Hz hors harmoniques)** : énergie hors des harmoniques principales, indicateur de perturbations.
+- **Score global** : combinaison pondérée de SNR, THD, bruit et amplitude fondamentale pour comparer la qualité des signaux.
 """)
 
 uploaded_file1 = st.file_uploader("Chargez le premier fichier CSV", type=["csv"])
@@ -31,8 +31,10 @@ def analyze_signal(time, signal, fixed_fundamental=0.0):
     fft_vals = np.fft.fft(sig_centered)
     freqs = np.fft.fftfreq(len(sig_centered), d=dt)
     mask = freqs >= 0
+
+    # CORRECTION : multiplication par 2 pour amplitudes unilatérales
+    magnitude_pos = 2 * np.abs(fft_vals[mask]) / len(sig_centered)
     freqs_pos = freqs[mask]
-    magnitude_pos = np.abs(fft_vals[mask]) / len(sig_centered)
 
     # Trouver la fréquence fondamentale
     fundamental_freq = 0
@@ -135,6 +137,37 @@ if uploaded_file1 and uploaded_file2:
         st.write("### Comparaison globale")
         st.write(f"Signal le plus propre : {best_signal}")
         st.write(comparison_result)
+
+        # --- Export CSV des résultats et harmoniques ---
+        all_data = []
+        for i, (fund, SNRv, THDv, noise, harms, amp, score) in enumerate([
+            (fundamental_frequency1, SNR1, THD1, noise_power1, harmonics1, amp_fund1, score_global1),
+            (fundamental_frequency2, SNR2, THD2, noise_power2, harmonics2, amp_fund2, score_global2)
+        ], start=1):
+            for order, freq, magnitude in harms:
+                all_data.append({
+                    "Signal": f"Signal {i}",
+                    "Ordre harmonique": order,
+                    "Fréquence (Hz)": freq,
+                    "Amplitude": magnitude,
+                    "Fréquence fondamentale (Hz)": fund,
+                    "Amplitude fondamentale": amp,
+                    "SNR (dB)": SNRv,
+                    "THD (dB)": THDv,
+                    "Bruit (0-10Hz)": noise,
+                    "Score global": score
+                })
+
+        if all_data:
+            harmonics_df = pd.DataFrame(all_data)
+            csv_buffer = io.StringIO()
+            harmonics_df.to_csv(csv_buffer, index=False, sep=";")
+            st.download_button(
+                label="📥 Télécharger toutes les données des harmoniques et paramètres (CSV)",
+                data=csv_buffer.getvalue(),
+                file_name="harmoniques_signaux.csv",
+                mime="text/csv"
+            )
 
     except Exception as e:
         st.error(f"Erreur lors de l'analyse : {e}")
