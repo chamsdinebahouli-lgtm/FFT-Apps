@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as st 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -162,6 +162,17 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
         st.write(f"**Signal 1 :** Fréquence fondamentale = {fundamental_frequency1:.4f} Hz, SNR = {SNR1:.2f} dB, THD = {THD1:.2f} dB, Bruit = {noise_power1:.4f}")
         st.write(f"**Signal 2 :** Fréquence fondamentale = {fundamental_frequency2:.4f} Hz, SNR = {SNR2:.2f} dB, THD = {THD2:.2f} dB, Bruit = {noise_power2:.4f}")
 
+        # --- Affichage des harmoniques ---
+        if len(prominent_freqs1) > 0:
+            st.write("### Harmoniques - Signal 1")
+            df_harm1 = pd.DataFrame(prominent_freqs1, columns=["Fréquence (Hz)", "Amplitude"])
+            st.dataframe(df_harm1.style.format({"Fréquence (Hz)": "{:.4f}", "Amplitude": "{:.6f}"}))
+
+        if len(prominent_freqs2) > 0:
+            st.write("### Harmoniques - Signal 2")
+            df_harm2 = pd.DataFrame(prominent_freqs2, columns=["Fréquence (Hz)", "Amplitude"])
+            st.dataframe(df_harm2.style.format({"Fréquence (Hz)": "{:.4f}", "Amplitude": "{:.6f}"}))
+
         st.write("### Conclusion de la comparaison")
         st.write(comparison_result)
 
@@ -191,5 +202,3 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
 
 else:
     st.info("Veuillez télécharger les deux fichiers CSV pour commencer l'analyse.")
-
-
