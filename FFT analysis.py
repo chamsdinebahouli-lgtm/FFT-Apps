@@ -32,6 +32,7 @@ magnitude_pos2 = np.array([])
 noise_power2 = 0
 
 comparison_result = "Aucune comparaison n'a pu être effectuée."
+comparison_result2 = "Aucune comparaison n'a pu être effectuée."
 
 
 if uploaded_file1 is not None and uploaded_file2 is not None:
