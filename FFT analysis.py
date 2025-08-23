@@ -162,10 +162,6 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
         st.write(f"**Signal 1 :** Fréquence fondamentale = {fundamental_frequency1:.4f} Hz, SNR = {SNR1:.2f} dB, THD = {THD1:.2f} dB, Bruit = {noise_power1:.4f}")
         st.write(f"**Signal 2 :** Fréquence fondamentale = {fundamental_frequency2:.4f} Hz, SNR = {SNR2:.2f} dB, THD = {THD2:.2f} dB, Bruit = {noise_power2:.4f}")
 
-        st.write("### Conclusion de la comparaison")
-        st.write(comparison_result)
-        st.write(f"➡️ **Signal le plus propre : {best_signal}**")
-
         # Tableaux des harmoniques
         if harmonics1:
             st.write("#### Harmoniques - Signal 1")
@@ -176,6 +172,34 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
             st.write("#### Harmoniques - Signal 2")
             harmo_df2 = pd.DataFrame(harmonics2, columns=["Ordre", "Fréquence (Hz)", "Amplitude"])
             st.dataframe(harmo_df2)
+
+        # --- Explications des termes ---
+        st.subheader("📘 Définitions des termes utilisés")
+
+        st.markdown("""
+        - **SNR (Signal-to-Noise Ratio / Rapport Signal sur Bruit)** :  
+          C'est le rapport entre la puissance de la fréquence fondamentale et la puissance du bruit présent dans le signal.  
+          - **Valeurs élevées de SNR** : le signal est dominant par rapport au bruit → meilleure qualité.  
+          - **Valeurs faibles de SNR** : le bruit est important par rapport au signal → signal plus perturbé.
+        """)
+
+        st.markdown("""
+        - **THD (Total Harmonic Distortion / Distorsion Harmonique Totale)** :  
+          Elle mesure la puissance cumulée des harmoniques (multiples entiers de la fondamentale) par rapport à la puissance de la fréquence fondamentale.  
+          - **THD faible** : le signal est proche d'une sinusoïde pure → mouvement précis et stable.  
+          - **THD élevée** : le signal contient beaucoup de composantes harmoniques → mouvement moins régulier et risque de vibrations.
+        """)
+
+        st.markdown("""
+        - **Bruit** :  
+          Puissance du signal qui n'appartient ni à la fréquence fondamentale ni à ses harmoniques importantes.  
+          - **Bruit faible** : le signal est propre et fiable.  
+          - **Bruit élevé** : perturbations aléatoires qui peuvent provoquer des erreurs ou des mouvements instables dans le système.
+        """)
+
+        st.write("### Conclusion de la comparaison")
+        st.write(comparison_result)
+        st.write(f"➡️ **Signal le plus propre : {best_signal}**")
 
     except Exception as e:
         st.error(f"Erreur lors de l'analyse : {e}")
