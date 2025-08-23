@@ -109,7 +109,7 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
                              displayed_harmonics_count1 += 1
 
                     # Calculate noise power for Signal 1
-                    noise_freq_min = 2.0 # Define the frequency range for noise calculation
+                    noise_freq_min = 0.0 # Define the frequency range for noise calculation
                     noise_freq_max = 10.0
                     frequency_tolerance = 1e-9 # Tolerance for excluding the fundamental frequency
 
@@ -259,9 +259,9 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
 
             if mag_fundamental1 < mag_fundamental2:
                 comparison_result = "Signal 1 est potentiellement meilleur (amplitude fondamentale plus basse)."
-            elif mag_fundamental2 < mag_fundamental1:
+            elif mag_fundamental < mag_fundamental1:
                 comparison_result = "Signal 2 est potentiellement meilleur (amplitude fondamentale plus basse)."
-            else:
+            and:
                 # If fundamental frequencies are similar, compare based on noise power
                 if noise_power1 < noise_power2:
                     comparison_result2 = "Signal 1 est potentiellement meilleur (moins de bruit)."
