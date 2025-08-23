@@ -114,7 +114,7 @@ if uploaded_file1 and uploaded_file2:
             pdf.cell(0, 10, f"Paramètres : Start={start_threshold}s, End={end_threshold}s, Fréquence forcée={fixed_fundamental}Hz", ln=1)
 
             # Sauvegarde graphique dans un fichier temporaire
-            with tempfile.NamedTemporaryFile(suffix=".png") as tmpfile:
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
                 fig.savefig(tmpfile.name, format='png')
                 tmpfile.flush()
                 pdf.image(tmpfile.name, x=10, y=40, w=190)
