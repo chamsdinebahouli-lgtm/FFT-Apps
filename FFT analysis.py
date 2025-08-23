@@ -3,9 +3,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import io
-import openpyxl
-from openpyxl.styles import Font, Alignment
-from openpyxl.utils import get_column_letter
 
 st.title("Application d'analyse FFT de deux signaux")
 
@@ -15,12 +12,13 @@ uploaded_file2 = st.file_uploader("Chargez le deuxième fichier CSV", type=["csv
 start_threshold = st.number_input("Exclure les N premières secondes :", min_value=0.0, value=30.0, step=1.0)
 end_threshold = st.number_input("Exclure les N dernières secondes :", min_value=0.0, value=20.0, step=1.0)
 
-# Variables initiales
+# Initialize variables
 df1 = None
 df2 = None
 time_filtered1, signal_filtered1 = np.array([]), np.array([])
 time_filtered2, signal_filtered2 = np.array([]), np.array([])
 fundamental_frequency1 = fundamental_frequency2 = 0
+prominent_freqs1, prominent_freqs2 = [], []
 freqs_pos1, freqs_pos2 = np.array([]), np.array([])
 magnitude_pos1, magnitude_pos2 = np.array([]), np.array([])
 noise_power1 = noise_power2 = 0
@@ -30,7 +28,7 @@ best_signal = "Non déterminé"
 
 if uploaded_file1 is not None and uploaded_file2 is not None:
     try:
-        # Lecture CSV
+        # Read CSVs
         df1 = pd.read_csv(uploaded_file1, decimal=',')
         df2 = pd.read_csv(uploaded_file2, decimal=',')
 
@@ -40,7 +38,7 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
         st.subheader("Aperçu des données - Fichier 2")
         st.dataframe(df2.head())
 
-        # --- Fonction d'analyse FFT ---
+        # --- Helper function for FFT analysis ---
         def analyze_signal(time, signal):
             if len(time) < 2:
                 return None
@@ -53,32 +51,41 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
             freqs_pos = freqs[mask]
             magnitude_pos = np.abs(fft_vals[mask]) / len(signal_centered)
 
-            # Fondamentale
+            # Trouver la fondamentale
             fundamental_freq = 0
+            prominent_freqs = []
             if len(magnitude_pos) > 1:
                 fundamental_index = np.argmax(magnitude_pos[1:]) + 1
                 fundamental_freq = freqs_pos[fundamental_index]
+                prominent_freqs.append((fundamental_freq, magnitude_pos[fundamental_index]))
 
-            # Puissance bruit [0-10 Hz] hors fondamentale
+            # Ajouter quelques harmoniques proéminentes
+            sorted_indices = np.argsort(magnitude_pos[1:])[::-1] + 1
+            for i in sorted_indices[:5]:
+                freq, mag = freqs_pos[i], magnitude_pos[i]
+                if abs(freq - fundamental_freq) > 1e-9:
+                    prominent_freqs.append((freq, mag))
+
+            # Puissance de bruit dans [0-10 Hz], hors fondamentale
             noise_power = 0
             for f, m in zip(freqs_pos, magnitude_pos):
                 if 0 <= f <= 10 and abs(f - fundamental_freq) > 1e-9:
                     noise_power += m**2
 
-            # SNR + THD
+            # Calcul SNR + THD
             if fundamental_freq != 0:
                 fundamental_index = np.argmin(np.abs(freqs_pos - fundamental_freq))
                 power_fund = magnitude_pos[fundamental_index]**2
-                power_harmonics = sum([m**2 for (f, m) in zip(freqs_pos, magnitude_pos) if f > 0 and abs(f - fundamental_freq) > 1e-9])
+                power_harmonics = sum([mag**2 for (freq, mag) in prominent_freqs if abs(freq - fundamental_freq) > 1e-9])
 
                 SNR = 10 * np.log10(power_fund / noise_power) if noise_power > 0 else np.inf
                 THD = 10 * np.log10(power_harmonics / power_fund) if power_fund > 0 else -np.inf
             else:
                 SNR, THD = 0, 0
 
-            return freqs_pos, magnitude_pos, fundamental_freq, noise_power, SNR, THD
+            return freqs_pos, magnitude_pos, fundamental_freq, prominent_freqs, noise_power, SNR, THD
 
-        # --- Analyse Signal 1 ---
+        # --- Process Signal 1 ---
         if 'Time' in df1.columns and 'Signal' in df1.columns:
             time1, signal1 = df1['Time'].values, df1['Signal'].values
             t_start, t_end = start_threshold, time1[-1] - end_threshold
@@ -87,11 +94,11 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
                 time_filtered1, signal_filtered1 = time1[start_idx:end_idx+1], signal1[start_idx:end_idx+1]
                 result = analyze_signal(time_filtered1, signal_filtered1)
                 if result:
-                    freqs_pos1, magnitude_pos1, fundamental_frequency1, noise_power1, SNR1, THD1 = result
+                    freqs_pos1, magnitude_pos1, fundamental_frequency1, prominent_freqs1, noise_power1, SNR1, THD1 = result
         else:
-            st.error("Le fichier CSV du Signal 1 doit contenir 'Time' et 'Signal'.")
+            st.error("Le fichier CSV du Signal 1 doit contenir les colonnes 'Time' et 'Signal'.")
 
-        # --- Analyse Signal 2 ---
+        # --- Process Signal 2 ---
         if 'Time' in df2.columns and 'Signal' in df2.columns:
             time2, signal2 = df2['Time'].values, df2['Signal'].values
             t_start, t_end = start_threshold, time2[-1] - end_threshold
@@ -100,36 +107,49 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
                 time_filtered2, signal_filtered2 = time2[start_idx:end_idx+1], signal2[start_idx:end_idx+1]
                 result = analyze_signal(time_filtered2, signal_filtered2)
                 if result:
-                    freqs_pos2, magnitude_pos2, fundamental_frequency2, noise_power2, SNR2, THD2 = result
+                    freqs_pos2, magnitude_pos2, fundamental_frequency2, prominent_freqs2, noise_power2, SNR2, THD2 = result
         else:
-            st.error("Le fichier CSV du Signal 2 doit contenir 'Time' et 'Signal'.")
+            st.error("Le fichier CSV du Signal 2 doit contenir les colonnes 'Time' et 'Signal'.")
 
-        # --- Comparaison SNR + THD ---
+        # --- Comparaison basée sur SNR + THD ---
         if len(freqs_pos1) > 0 and len(freqs_pos2) > 0:
             if SNR1 > SNR2 and THD1 < THD2:
-                comparison_result = "✅ Signal 1 est globalement moins perturbé."
+                comparison_result = "✅ Signal 1 est globalement moins perturbé (meilleur SNR et plus faible THD)."
                 best_signal = "Signal 1"
             elif SNR2 > SNR1 and THD2 < THD1:
-                comparison_result = "✅ Signal 2 est globalement moins perturbé."
+                comparison_result = "✅ Signal 2 est globalement moins perturbé (meilleur SNR et plus faible THD)."
                 best_signal = "Signal 2"
             else:
-                comparison_result = "⚖️ Les deux signaux ont des compromis différents."
-                best_signal = "Égalité"
+                if SNR1 > SNR2:
+                    comparison_result = "⚖️ Signal 1 a un meilleur SNR (moins de bruit), mais Signal 2 a une distorsion plus faible (THD)."
+                    best_signal = "Signal 1 (si le bruit est plus critique)"
+                elif SNR2 > SNR1:
+                    comparison_result = "⚖️ Signal 2 a un meilleur SNR (moins de bruit), mais Signal 1 a une distorsion plus faible (THD)."
+                    best_signal = "Signal 2 (si le bruit est plus critique)"
+                else:
+                    comparison_result = "ℹ️ Les deux signaux présentent des perturbations similaires (SNR et THD comparables)."
+                    best_signal = "Égalité"
 
-        # --- Graphiques ---
-        st.subheader("Analyse graphique")
+        # --- Affichage ---
+        st.subheader("Résultats de l'analyse")
+
+        # Tracés
         if len(freqs_pos1) > 0 or len(freqs_pos2) > 0:
             fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+            # Signal 1
             if len(time_filtered1) > 1:
                 axes[0, 0].plot(time_filtered1, signal_filtered1, label="Signal 1")
                 axes[0, 0].set_title("Signal temporel 1")
+                axes[0, 0].grid(True)
             if len(freqs_pos1) > 0:
                 axes[0, 1].stem(freqs_pos1, magnitude_pos1, basefmt=" ")
                 axes[0, 1].set_xlim(0, 10)
                 axes[0, 1].set_title("Spectre FFT - Signal 1")
+            # Signal 2
             if len(time_filtered2) > 1:
-                axes[1, 0].plot(time_filtered2, signal_filtered2, color='orange')
+                axes[1, 0].plot(time_filtered2, signal_filtered2, color='orange', label="Signal 2")
                 axes[1, 0].set_title("Signal temporel 2")
+                axes[1, 0].grid(True)
             if len(freqs_pos2) > 0:
                 axes[1, 1].stem(freqs_pos2, magnitude_pos2, basefmt=" ", linefmt='orange')
                 axes[1, 1].set_xlim(0, 10)
@@ -137,16 +157,18 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
             plt.tight_layout()
             st.pyplot(fig)
 
-        # --- Résultats numériques ---
-        st.write("### Résultats numériques")
-        st.write(f"**Signal 1 :** f₀ = {fundamental_frequency1:.4f} Hz, SNR = {SNR1:.2f} dB, THD = {THD1:.2f} dB, Bruit = {noise_power1:.4f}")
-        st.write(f"**Signal 2 :** f₀ = {fundamental_frequency2:.4f} Hz, SNR = {SNR2:.2f} dB, THD = {THD2:.2f} dB, Bruit = {noise_power2:.4f}")
+        # Résultats numériques
+        st.write("### Indicateurs de qualité du signal")
+        st.write(f"**Signal 1 :** Fréquence fondamentale = {fundamental_frequency1:.4f} Hz, SNR = {SNR1:.2f} dB, THD = {THD1:.2f} dB, Bruit = {noise_power1:.4f}")
+        st.write(f"**Signal 2 :** Fréquence fondamentale = {fundamental_frequency2:.4f} Hz, SNR = {SNR2:.2f} dB, THD = {THD2:.2f} dB, Bruit = {noise_power2:.4f}")
 
-        st.write("### Conclusion")
+        st.write("### Conclusion de la comparaison")
         st.write(comparison_result)
+
+        st.write("### Classement automatique")
         st.write(f"➡️ **Signal le plus propre : {best_signal}**")
 
-        # --- DataFrame résultats ---
+        # --- Export CSV des résultats ---
         results_df = pd.DataFrame({
             "Signal": ["Signal 1", "Signal 2"],
             "Fréquence_fondamentale_Hz": [fundamental_frequency1, fundamental_frequency2],
@@ -155,7 +177,6 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
             "Puissance_bruit": [noise_power1, noise_power2]
         })
 
-        # --- Export CSV ---
         csv_buffer = io.StringIO()
         results_df.to_csv(csv_buffer, index=False, sep=";")
         st.download_button(
@@ -163,34 +184,6 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
             data=csv_buffer.getvalue(),
             file_name="resultats_signaux.csv",
             mime="text/csv"
-        )
-
-        # --- Export Excel ---
-        excel_buffer = io.BytesIO()
-        with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
-            results_df.to_excel(writer, index=False, sheet_name="Résultats")
-
-            workbook = writer.book
-            worksheet = writer.sheets["Résultats"]
-
-            # Style en-têtes
-            header_font = Font(bold=True, color="FFFFFF")
-            header_fill = openpyxl.styles.PatternFill("solid", fgColor="4F81BD")
-
-            for col_num, col_name in enumerate(results_df.columns, 1):
-                col_letter = get_column_letter(col_num)
-                cell = worksheet[f"{col_letter}1"]
-                cell.font = header_font
-                cell.fill = header_fill
-                cell.alignment = Alignment(horizontal="center", vertical="center")
-                max_length = max(len(str(val)) for val in [col_name] + results_df[col_name].astype(str).tolist())
-                worksheet.column_dimensions[col_letter].width = max_length + 2
-
-        st.download_button(
-            label="📊 Télécharger les résultats (Excel)",
-            data=excel_buffer.getvalue(),
-            file_name="resultats_signaux.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
     except Exception as e:
