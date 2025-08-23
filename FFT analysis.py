@@ -259,7 +259,7 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
 
             if mag_fundamental1 < mag_fundamental2:
                 comparison_result = "Signal 1 est potentiellement meilleur (amplitude fondamentale plus basse)."
-            elif mag_fundamental < mag_fundamental1:
+            elif mag_fundamental2 < mag_fundamental1:
                 comparison_result = "Signal 2 est potentiellement meilleur (amplitude fondamentale plus basse)."
             else:
                 # If fundamental frequencies are similar, compare based on noise power
