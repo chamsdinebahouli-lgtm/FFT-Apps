@@ -165,12 +165,18 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
         # --- Affichage des harmoniques ---
         if len(prominent_freqs1) > 0:
             st.write("### Harmoniques - Signal 1")
-            df_harm1 = pd.DataFrame(prominent_freqs1, columns=["Fréquence (Hz)", "Amplitude"])
+            df_harm1 = pd.DataFrame([
+                {"k": i+1, "Fréquence (Hz)": f, "Amplitude": a}
+                for i, (f, a) in enumerate(prominent_freqs1)
+            ])
             st.dataframe(df_harm1.style.format({"Fréquence (Hz)": "{:.4f}", "Amplitude": "{:.6f}"}))
 
         if len(prominent_freqs2) > 0:
             st.write("### Harmoniques - Signal 2")
-            df_harm2 = pd.DataFrame(prominent_freqs2, columns=["Fréquence (Hz)", "Amplitude"])
+            df_harm2 = pd.DataFrame([
+                {"k": i+1, "Fréquence (Hz)": f, "Amplitude": a}
+                for i, (f, a) in enumerate(prominent_freqs2)
+            ])
             st.dataframe(df_harm2.style.format({"Fréquence (Hz)": "{:.4f}", "Amplitude": "{:.6f}"}))
 
         st.write("### Conclusion de la comparaison")
