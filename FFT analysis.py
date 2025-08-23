@@ -15,13 +15,14 @@ uploaded_file2 = st.file_uploader("Chargez le deuxième fichier CSV", type=["csv
 start_threshold = st.number_input("Exclure les N premières secondes :", min_value=0.0, value=30.0, step=1.0)
 end_threshold = st.number_input("Exclure les N dernières secondes :", min_value=0.0, value=20.0, step=1.0)
 
-# Initialisation des variables
-df1 = df2 = None
-time_filtered1 = signal_filtered1 = np.array([])
-time_filtered2 = signal_filtered2 = np.array([])
+# Variables initiales
+df1 = None
+df2 = None
+time_filtered1, signal_filtered1 = np.array([]), np.array([])
+time_filtered2, signal_filtered2 = np.array([]), np.array([])
 fundamental_frequency1 = fundamental_frequency2 = 0
-freqs_pos1 = freqs_pos2 = np.array([])
-magnitude_pos1 = magnitude_pos2 = np.array([])
+freqs_pos1, freqs_pos2 = np.array([]), np.array([])
+magnitude_pos1, magnitude_pos2 = np.array([]), np.array([])
 noise_power1 = noise_power2 = 0
 SNR1 = SNR2 = THD1 = THD2 = 0
 comparison_result = "Aucune comparaison n'a pu être effectuée."
@@ -39,10 +40,11 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
         st.subheader("Aperçu des données - Fichier 2")
         st.dataframe(df2.head())
 
-        # --- Fonction FFT et analyse ---
+        # --- Fonction d'analyse FFT ---
         def analyze_signal(time, signal):
             if len(time) < 2:
                 return None
+
             dt = time[1] - time[0]
             signal_centered = signal - np.mean(signal)
             fft_vals = np.fft.fft(signal_centered)
@@ -57,37 +59,24 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
                 fundamental_index = np.argmax(magnitude_pos[1:]) + 1
                 fundamental_freq = freqs_pos[fundamental_index]
 
-            # Puissance du bruit [0-10 Hz] hors fondamentale
+            # Puissance bruit [0-10 Hz] hors fondamentale
             noise_power = 0
             for f, m in zip(freqs_pos, magnitude_pos):
                 if 0 <= f <= 10 and abs(f - fundamental_freq) > 1e-9:
                     noise_power += m**2
 
-            # SNR et THD
+            # SNR + THD
             if fundamental_freq != 0:
                 fundamental_index = np.argmin(np.abs(freqs_pos - fundamental_freq))
                 power_fund = magnitude_pos[fundamental_index]**2
                 power_harmonics = sum([m**2 for (f, m) in zip(freqs_pos, magnitude_pos) if f > 0 and abs(f - fundamental_freq) > 1e-9])
+
                 SNR = 10 * np.log10(power_fund / noise_power) if noise_power > 0 else np.inf
                 THD = 10 * np.log10(power_harmonics / power_fund) if power_fund > 0 else -np.inf
             else:
                 SNR, THD = 0, 0
 
             return freqs_pos, magnitude_pos, fundamental_freq, noise_power, SNR, THD
-
-        # --- Fonction extraction harmoniques ---
-        def extract_harmonics(freqs, magnitudes, f0, n_harmonics=5):
-            harmonics_data = []
-            if f0 <= 0:
-                return pd.DataFrame()
-            for k in range(1, n_harmonics+1):
-                target_freq = k * f0
-                idx = np.argmin(np.abs(freqs - target_freq))
-                freq_val = freqs[idx]
-                amp_val = magnitudes[idx]
-                rel_db = 20*np.log10(amp_val / magnitudes[np.argmax(magnitudes)]) if amp_val > 0 else -np.inf
-                harmonics_data.append([k, freq_val, amp_val, rel_db])
-            return pd.DataFrame(harmonics_data, columns=["Harmonique (k)", "Fréquence (Hz)", "Amplitude", "Relatif (dB)"])
 
         # --- Analyse Signal 1 ---
         if 'Time' in df1.columns and 'Signal' in df1.columns:
@@ -132,22 +121,80 @@ if uploaded_file1 is not None and uploaded_file2 is not None:
         if len(freqs_pos1) > 0 or len(freqs_pos2) > 0:
             fig, axes = plt.subplots(2, 2, figsize=(12, 10))
             if len(time_filtered1) > 1:
-                axes[0,0].plot(time_filtered1, signal_filtered1, label="Signal 1")
-                axes[0,0].set_title("Signal temporel 1")
+                axes[0, 0].plot(time_filtered1, signal_filtered1, label="Signal 1")
+                axes[0, 0].set_title("Signal temporel 1")
             if len(freqs_pos1) > 0:
-                axes[0,1].stem(freqs_pos1, magnitude_pos1, basefmt=" ")
-                axes[0,1].set_xlim(0,10)
-                axes[0,1].set_title("Spectre FFT - Signal 1")
+                axes[0, 1].stem(freqs_pos1, magnitude_pos1, basefmt=" ")
+                axes[0, 1].set_xlim(0, 10)
+                axes[0, 1].set_title("Spectre FFT - Signal 1")
             if len(time_filtered2) > 1:
-                axes[1,0].plot(time_filtered2, signal_filtered2, color='orange')
-                axes[1,0].set_title("Signal temporel 2")
+                axes[1, 0].plot(time_filtered2, signal_filtered2, color='orange')
+                axes[1, 0].set_title("Signal temporel 2")
             if len(freqs_pos2) > 0:
-                axes[1,1].stem(freqs_pos2, magnitude_pos2, basefmt=" ", linefmt='orange')
-                axes[1,1].set_xlim(0,10)
-                axes[1,1].set_title("Spectre FFT - Signal 2")
+                axes[1, 1].stem(freqs_pos2, magnitude_pos2, basefmt=" ", linefmt='orange')
+                axes[1, 1].set_xlim(0, 10)
+                axes[1, 1].set_title("Spectre FFT - Signal 2")
             plt.tight_layout()
             st.pyplot(fig)
 
         # --- Résultats numériques ---
-        st.subheader("Résultats numériques")
-        st.write(f"**Signal 1 :** f₀ = {fundamental_frequency1:.4f} Hz, SNR
+        st.write("### Résultats numériques")
+        st.write(f"**Signal 1 :** f₀ = {fundamental_frequency1:.4f} Hz, SNR = {SNR1:.2f} dB, THD = {THD1:.2f} dB, Bruit = {noise_power1:.4f}")
+        st.write(f"**Signal 2 :** f₀ = {fundamental_frequency2:.4f} Hz, SNR = {SNR2:.2f} dB, THD = {THD2:.2f} dB, Bruit = {noise_power2:.4f}")
+
+        st.write("### Conclusion")
+        st.write(comparison_result)
+        st.write(f"➡️ **Signal le plus propre : {best_signal}**")
+
+        # --- DataFrame résultats ---
+        results_df = pd.DataFrame({
+            "Signal": ["Signal 1", "Signal 2"],
+            "Fréquence_fondamentale_Hz": [fundamental_frequency1, fundamental_frequency2],
+            "SNR_dB": [SNR1, SNR2],
+            "THD_dB": [THD1, THD2],
+            "Puissance_bruit": [noise_power1, noise_power2]
+        })
+
+        # --- Export CSV ---
+        csv_buffer = io.StringIO()
+        results_df.to_csv(csv_buffer, index=False, sep=";")
+        st.download_button(
+            label="📥 Télécharger les résultats (CSV)",
+            data=csv_buffer.getvalue(),
+            file_name="resultats_signaux.csv",
+            mime="text/csv"
+        )
+
+        # --- Export Excel ---
+        excel_buffer = io.BytesIO()
+        with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+            results_df.to_excel(writer, index=False, sheet_name="Résultats")
+
+            workbook = writer.book
+            worksheet = writer.sheets["Résultats"]
+
+            # Style en-têtes
+            header_font = Font(bold=True, color="FFFFFF")
+            header_fill = openpyxl.styles.PatternFill("solid", fgColor="4F81BD")
+
+            for col_num, col_name in enumerate(results_df.columns, 1):
+                col_letter = get_column_letter(col_num)
+                cell = worksheet[f"{col_letter}1"]
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+                max_length = max(len(str(val)) for val in [col_name] + results_df[col_name].astype(str).tolist())
+                worksheet.column_dimensions[col_letter].width = max_length + 2
+
+        st.download_button(
+            label="📊 Télécharger les résultats (Excel)",
+            data=excel_buffer.getvalue(),
+            file_name="resultats_signaux.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    except Exception as e:
+        st.error(f"Erreur lors de l'analyse : {e}")
+
+else:
+    st.info("Veuillez télécharger les deux fichiers CSV pour commencer l'analyse.")
