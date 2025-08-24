@@ -105,16 +105,26 @@ if uploaded_file1 and uploaded_file2:
         axes1[1].set_title(f"Signal 2 (RMSE={rmse2:.4f})"); axes1[1].legend()
         st.pyplot(fig1)
 
-        # --- FFT du signal d'écart ---
-        fig2, axes2 = plt.subplots(2,1, figsize=(12,6))
-        axes2[0].stem(freqs_diff1, mag_diff1, linefmt='-', markerfmt='o', basefmt=" ")
-        axes2[0].set_xlim(0,freq_display_max)
-        axes2[0].set_title("FFT écart vs modèle - Signal 1")
-        axes2[1].stem(freqs_diff2, mag_diff2, linefmt='-', markerfmt='o', basefmt=" ")
-        axes2[1].set_xlim(0,freq_display_max)
-        axes2[1].set_title("FFT écart vs modèle - Signal 2")
+        # --- FFT des signaux réels et des écarts ---
+        fig3, axes3 = plt.subplots(2,2, figsize=(14,8))
+        # Signal 1 réel
+        axes3[0,0].stem(freqs_pos1, magnitude_pos1, linefmt='-', markerfmt='o', basefmt=" ")
+        axes3[0,0].set_xlim(0,freq_display_max)
+        axes3[0,0].set_title("FFT Signal 1 réel")
+        # Signal 1 écart
+        axes3[0,1].stem(freqs_diff1, mag_diff1, linefmt='-', markerfmt='o', basefmt=" ")
+        axes3[0,1].set_xlim(0,freq_display_max)
+        axes3[0,1].set_title("FFT Signal 1 écart vs modèle")
+        # Signal 2 réel
+        axes3[1,0].stem(freqs_pos2, magnitude_pos2, linefmt='-', markerfmt='o', basefmt=" ")
+        axes3[1,0].set_xlim(0,freq_display_max)
+        axes3[1,0].set_title("FFT Signal 2 réel")
+        # Signal 2 écart
+        axes3[1,1].stem(freqs_diff2, mag_diff2, linefmt='-', markerfmt='o', basefmt=" ")
+        axes3[1,1].set_xlim(0,freq_display_max)
+        axes3[1,1].set_title("FFT Signal 2 écart vs modèle")
         plt.tight_layout()
-        st.pyplot(fig2)
+        st.pyplot(fig3)
 
         # --- Affichage indicateurs et score global ---
         st.write("### Indicateurs et Score")
