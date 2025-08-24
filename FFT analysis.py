@@ -110,24 +110,41 @@ if uploaded_file1 and uploaded_file2:
         freqs_pos1, magnitude_pos1, fundamental_frequency1, harmonics1, noise_power1, SNR1, THD1, amp_fund1, score_global1 = analyze_signal(time_filtered1, signal_filtered1, fixed_fundamental)
         freqs_pos2, magnitude_pos2, fundamental_frequency2, harmonics2, noise_power2, SNR2, THD2, amp_fund2, score_global2 = analyze_signal(time_filtered2, signal_filtered2, fixed_fundamental)
 
-        # Graphiques
+        # --- Graphiques avec marquage des harmoniques ---
         fig, axes = plt.subplots(2,2, figsize=(12,10))
+
+        # Signal 1
         axes[0,0].plot(time_filtered1, signal_filtered1)
         axes[0,0].set_title("Signal temporel 1")
+
         axes[0,1].stem(freqs_pos1, magnitude_pos1, basefmt=" ")
         axes[0,1].set_xlim(0,freq_display_max)
         axes[0,1].set_title("FFT - Signal 1")
+        axes[0,1].plot(fundamental_frequency1, harmonics1[0][2], 'ro', label='Fondamental')
+        for h in harmonics1[1:]:
+            if h[1] <= freq_display_max:
+                axes[0,1].plot(h[1], h[2], 'bo')
+                axes[0,1].text(h[1], h[2], f"{int(h[0])}", ha='center', va='bottom', fontsize=8)
+        axes[0,1].legend()
 
+        # Signal 2
         axes[1,0].plot(time_filtered2, signal_filtered2, color='orange')
         axes[1,0].set_title("Signal temporel 2")
+
         axes[1,1].stem(freqs_pos2, magnitude_pos2, basefmt=" ", linefmt='orange')
         axes[1,1].set_xlim(0,freq_display_max)
         axes[1,1].set_title("FFT - Signal 2")
+        axes[1,1].plot(fundamental_frequency2, harmonics2[0][2], 'ro', label='Fondamental')
+        for h in harmonics2[1:]:
+            if h[1] <= freq_display_max:
+                axes[1,1].plot(h[1], h[2], 'bo')
+                axes[1,1].text(h[1], h[2], f"{int(h[0])}", ha='center', va='bottom', fontsize=8)
+        axes[1,1].legend()
 
         plt.tight_layout()
         st.pyplot(fig)
 
-        # Résultats
+        # --- Résultats ---
         st.write("### Paramètres et indicateurs")
         for i, (fund, SNRv, THDv, noise, harms, amp, score) in enumerate([
             (fundamental_frequency1, SNR1, THD1, noise_power1, harmonics1, amp_fund1, score_global1),
@@ -144,7 +161,7 @@ if uploaded_file1 and uploaded_file2:
             harms_df = pd.DataFrame(harms, columns=["Ordre", "Fréquence (Hz)", "Amplitude"])
             st.dataframe(harms_df)
 
-        # Comparaison globale
+        # --- Comparaison globale ---
         st.write("### Comparaison globale")
         if score_global1 > score_global2:
             best_signal="Signal 1"
@@ -159,7 +176,7 @@ if uploaded_file1 and uploaded_file2:
         st.write(f"Signal le plus propre : **{best_signal}**")
         st.info(comparison_result)
 
-        # Export CSV
+        # --- Export CSV ---
         all_data = []
         for i, (fund, SNRv, THDv, noise, harms, amp, score) in enumerate([
             (fundamental_frequency1, SNR1, THD1, noise_power1, harmonics1, amp_fund1, score_global1),
