@@ -169,4 +169,62 @@ if uploaded_file1 and uploaded_file2:
             st.write(f"**Signal {i}** :")
             st.write(f"Fréquence fondamentale = {fund:.4f} Hz")
             st.write(f"Amplitude fondamentale = {amp:.4f}")
-            st.write
+            st.write(f"SNR = {'∞' if SNRv==np.inf else f'{SNRv:.2f} dB'}")
+            st.write(f"THD = {'-∞' if THDv==-np.inf else f'{THDv:.2f} dB'}")
+            st.write(f"Bruit (0-10 Hz hors harmoniques) = {noise:.4f}")
+            st.write(f"RMSE vs signal idéal = {rmse:.4f}")
+            st.write(f"Score global = {score:.2f}")
+            st.write("Harmoniques :")
+            harms_df = pd.DataFrame(harms, columns=["Ordre", "Fréquence (Hz)", "Amplitude"])
+            st.dataframe(harms_df)
+
+        # --- Comparaison globale ---
+        st.write("### Comparaison globale")
+        if score_global1 > score_global2:
+            best_signal="Signal 1"
+            comparison_result="Signal 1 présente un meilleur compromis SNR, THD, bruit et proximité du modèle idéal."
+        elif score_global2 > score_global1:
+            best_signal="Signal 2"
+            comparison_result="Signal 2 présente un meilleur compromis SNR, THD, bruit et proximité du modèle idéal."
+        else:
+            best_signal="Égalité"
+            comparison_result="Les deux signaux ont des performances comparables en termes de qualité et d’écart au modèle."
+
+        st.write(f"Signal le plus propre : **{best_signal}**")
+        st.info(comparison_result)
+
+        # --- Export CSV ---
+        all_data = []
+        for i, (fund, SNRv, THDv, noise, harms, amp, score, rmse) in enumerate([
+            (fundamental_frequency1, SNR1, THD1, noise_power1, harmonics1, amp_fund1, score_global1, rmse1),
+            (fundamental_frequency2, SNR2, THD2, noise_power2, harmonics2, amp_fund2, score_global2, rmse2)
+        ], start=1):
+            for order, freq, magnitude in harms:
+                all_data.append({
+                    "Signal": f"Signal {i}",
+                    "Ordre harmonique": order,
+                    "Fréquence (Hz)": freq,
+                    "Amplitude": magnitude,
+                    "Fréquence fondamentale (Hz)": fund,
+                    "Amplitude fondamentale": amp,
+                    "SNR (dB)": SNRv,
+                    "THD (dB)": THDv,
+                    "Bruit (0-10Hz)": noise,
+                    "RMSE vs idéal": rmse,
+                    "Score global": score
+                })
+        if all_data:
+            harmonics_df = pd.DataFrame(all_data)
+            csv_buffer = io.StringIO()
+            harmonics_df.to_csv(csv_buffer, index=False, sep=";")
+            st.download_button(
+                label="📥 Télécharger toutes les données (CSV)",
+                data=csv_buffer.getvalue(),
+                file_name="harmoniques_signaux.csv",
+                mime="text/csv"
+            )
+
+    except Exception as e:
+        st.error(f"Erreur lors de l'analyse : {e}")
+else:
+    st.info("Veuillez télécharger les deux fichiers CSV pour commencer l'analyse.")
