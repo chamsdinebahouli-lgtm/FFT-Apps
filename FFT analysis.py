@@ -144,14 +144,94 @@ if uploaded_file1 and uploaded_file2:
             st.dataframe(pd.DataFrame(harms, columns=["Ordre","Fréquence (Hz)","Amplitude"]))
 
         # --- Comparaison globale ---
-        st.write("### Comparaison globale")
-        if score_global1>score_global2:
-            best="Signal 1"
-        elif score_global2>score_global1:
-            best="Signal 2"
+       # --- Comparaison globale détaillée avec mise en couleur ---
+
+# Construction du tableau comparatif
+comparison_data = {
+    "Critère": ["RMSE vs modèle", "SNR (dB)", "THD (dB)", "Puissance de bruit", "Score global"],
+    "Signal 1": [rmse1, SNR1, THD1, noise_power1, score_global1],
+    "Signal 2": [rmse2, SNR2, THD2, noise_power2, score_global2],
+}
+
+comparison_df = pd.DataFrame(comparison_data)
+
+# Fonction pour colorer les meilleures valeurs
+def highlight_best(val1, val2, crit):
+    if crit == "RMSE vs modèle" or crit == "THD (dB)" or crit == "Puissance de bruit":
+        # Plus petit = meilleur
+        if val1 < val2:
+            return ["background-color: lightgreen", "background-color: salmon"]
+        elif val2 < val1:
+            return ["background-color: salmon", "background-color: lightgreen"]
         else:
-            best="Égalité"
-        st.write(f"Signal le plus propre : **{best}**")
+            return ["background-color: lightyellow", "background-color: lightyellow"]
+    else:
+        # Plus grand = meilleur
+        if val1 > val2:
+            return ["background-color: lightgreen", "background-color: salmon"]
+        elif val2 > val1:
+            return ["background-color: salmon", "background-color: lightgreen"]
+        else:
+            return ["background-color: lightyellow", "background-color: lightyellow"]
+
+# Application du style ligne par ligne
+styled_df = comparison_df.style.apply(
+    lambda row: highlight_best(row["Signal 1"], row["Signal 2"], row["Critère"]),
+    axis=1, subset=["Signal 1", "Signal 2"]
+)
+
+st.write("### Comparaison globale")
+st.dataframe(styled_df, use_container_width=True)
+
+# --- Analyse textuelle automatique (comme avant) ---
+analysis_comments = []
+
+# RMSE
+if rmse1 < rmse2:
+    analysis_comments.append("🔹 **Signal 1** suit mieux le modèle idéal (RMSE plus faible).")
+elif rmse2 < rmse1:
+    analysis_comments.append("🔹 **Signal 2** suit mieux le modèle idéal (RMSE plus faible).")
+else:
+    analysis_comments.append("🔹 Les deux signaux suivent le modèle idéal de façon similaire (RMSE équivalent).")
+
+# SNR
+if SNR1 > SNR2:
+    analysis_comments.append("🔹 **Signal 1** est moins bruité (SNR supérieur).")
+elif SNR2 > SNR1:
+    analysis_comments.append("🔹 **Signal 2** est moins bruité (SNR supérieur).")
+else:
+    analysis_comments.append("🔹 Les deux signaux présentent un niveau de bruit similaire (SNR équivalent).")
+
+# THD
+if THD1 < THD2:
+    analysis_comments.append("🔹 **Signal 1** présente une distorsion harmonique plus faible → meilleure pureté spectrale.")
+elif THD2 < THD1:
+    analysis_comments.append("🔹 **Signal 2** présente une distorsion harmonique plus faible → meilleure pureté spectrale.")
+else:
+    analysis_comments.append("🔹 Les deux signaux ont une distorsion harmonique similaire.")
+
+# Bruit
+if noise_power1 < noise_power2:
+    analysis_comments.append("🔹 **Signal 1** contient moins de bruit résiduel dans la bande 0-10 Hz.")
+elif noise_power2 < noise_power1:
+    analysis_comments.append("🔹 **Signal 2** contient moins de bruit résiduel dans la bande 0-10 Hz.")
+else:
+    analysis_comments.append("🔹 Les deux signaux ont un bruit comparable dans la bande 0-10 Hz.")
+
+# Score global
+if score_global1 > score_global2:
+    final_verdict = "✅ **Signal 1 est globalement meilleur selon le score combiné.**"
+elif score_global2 > score_global1:
+    final_verdict = "✅ **Signal 2 est globalement meilleur selon le score combiné.**"
+else:
+    final_verdict = "✅ **Les deux signaux sont équivalents selon le score combiné.**"
+
+# Affichage de l’analyse
+st.markdown("#### Analyse des résultats")
+for comment in analysis_comments:
+    st.markdown(comment)
+
+st.markdown(f"### Verdict final\n{final_verdict}")
 
     except Exception as e:
         st.error(f"Erreur : {e}")
