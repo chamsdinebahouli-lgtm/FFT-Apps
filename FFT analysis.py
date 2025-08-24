@@ -4,7 +4,25 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import io
 
+# --- Titre principal ---
 st.title("Application d'analyse FFT de deux signaux")
+
+# --- Sidebar pour paramètres ---
+st.sidebar.title("⚙ Paramètres d'analyse")
+
+start_threshold = st.sidebar.number_input("Exclure les N premières secondes :", min_value=0.0, value=30.0, step=1.0)
+end_threshold = st.sidebar.number_input("Exclure les N dernières secondes :", min_value=0.0, value=20.0, step=1.0)
+fixed_fundamental = st.sidebar.number_input(
+    "Forcer la fréquence fondamentale (Hz, mettre 0 pour auto)", 
+    min_value=0.0, value=0.0, step=1.0
+)
+freq_display_max = st.sidebar.number_input(
+    "Fréquence max affichée sur la FFT (Hz)", 
+    min_value=1.0, value=10.0, step=1.0
+)
+
+uploaded_file1 = st.sidebar.file_uploader("Chargez le premier fichier CSV", type=["csv"])
+uploaded_file2 = st.sidebar.file_uploader("Chargez le deuxième fichier CSV", type=["csv"])
 
 # --- Encadré explicatif ---
 st.subheader("💡 Définitions des indicateurs de qualité du signal")
@@ -16,14 +34,6 @@ st.markdown("""
 - **Bruit (0-10 Hz hors harmoniques)** : énergie hors des harmoniques principales, indicateur de perturbations.
 - **Score global** : combinaison pondérée de SNR, THD, bruit et amplitude fondamentale pour comparer la qualité des signaux.
 """)
-
-uploaded_file1 = st.file_uploader("Chargez le premier fichier CSV", type=["csv"])
-uploaded_file2 = st.file_uploader("Chargez le deuxième fichier CSV", type=["csv"])
-
-start_threshold = st.number_input("Exclure les N premières secondes :", min_value=0.0, value=30.0, step=1.0)
-end_threshold = st.number_input("Exclure les N dernières secondes :", min_value=0.0, value=20.0, step=1.0)
-fixed_fundamental = st.number_input("Forcer la fréquence fondamentale (Hz, mettre 0 pour auto)", min_value=0.0, value=0.0, step=1.0)
-freq_display_max = st.number_input("Fréquence max affichée sur la FFT (Hz)", min_value=1.0, value=10.0, step=1.0)
 
 # --- Fonction d'analyse FFT ---
 def analyze_signal(time, signal, fixed_fundamental=0.0):
@@ -37,7 +47,7 @@ def analyze_signal(time, signal, fixed_fundamental=0.0):
     magnitude_pos[1:] *= 2  # Doubler toutes sauf DC
     freqs_pos = freqs[mask]
 
-    # --- Détection de la fréquence fondamentale ---
+    # Détection fréquence fondamentale
     fundamental_freq = 0
     harmonics = []
 
@@ -50,7 +60,7 @@ def analyze_signal(time, signal, fixed_fundamental=0.0):
         fundamental_freq = freqs_pos[idx]
         harmonics.append((1, fundamental_freq, magnitude_pos[idx]))
 
-    # --- 10 premiers harmoniques ---
+    # 10 premiers harmoniques
     if fundamental_freq > 0:
         for n in range(2, 11):
             target = n * fundamental_freq
@@ -58,8 +68,8 @@ def analyze_signal(time, signal, fixed_fundamental=0.0):
                 magnitude_interp = np.interp(target, freqs_pos, magnitude_pos)
                 harmonics.append((n, target, magnitude_interp))
 
-    # --- Bruit (0-10 Hz, hors harmoniques) ---
-    tol = 0.01  # tolérance pour éviter d'inclure les harmoniques
+    # Bruit (0-10 Hz hors harmoniques)
+    tol = 0.01
     noise_power = sum([m**2 for f, m in zip(freqs_pos, magnitude_pos) if 0 <= f <= 10 and all(abs(f-h[1]) > tol for h in harmonics)])
 
     power_fund = harmonics[0][2]**2 if harmonics else 0
@@ -69,7 +79,6 @@ def analyze_signal(time, signal, fixed_fundamental=0.0):
     THD = 10*np.log10(power_harmo / power_fund) if power_fund>0 else -np.inf
     amp_fundamental = harmonics[0][2] if harmonics else 0
 
-    # --- Score global combiné ---
     score_global = 0.4*SNR - 0.3*THD - 0.2*noise_power + 0.1*amp_fundamental
 
     return freqs_pos, magnitude_pos, fundamental_freq, harmonics, noise_power, SNR, THD, amp_fundamental, score_global
@@ -80,7 +89,6 @@ if uploaded_file1 and uploaded_file2:
         df1 = pd.read_csv(uploaded_file1, decimal=',')
         df2 = pd.read_csv(uploaded_file2, decimal=',')
 
-        # --- Vérification des colonnes ---
         for i, df in enumerate([df1, df2], start=1):
             if not {'Time','Signal'}.issubset(df.columns):
                 st.error(f"Le fichier CSV {i} doit contenir les colonnes 'Time' et 'Signal'")
@@ -89,7 +97,7 @@ if uploaded_file1 and uploaded_file2:
         time1, signal1 = df1['Time'].values, df1['Signal'].values
         time2, signal2 = df2['Time'].values, df2['Signal'].values
 
-        # --- Filtrage temporel simplifié ---
+        # Filtrage temporel simplifié
         start_idx1 = np.searchsorted(time1, start_threshold, side='left')
         end_idx1 = np.searchsorted(time1, time1[-1]-end_threshold, side='right') - 1
         time_filtered1, signal_filtered1 = time1[start_idx1:end_idx1+1], signal1[start_idx1:end_idx1+1]
@@ -98,11 +106,11 @@ if uploaded_file1 and uploaded_file2:
         end_idx2 = np.searchsorted(time2, time2[-1]-end_threshold, side='right') - 1
         time_filtered2, signal_filtered2 = time2[start_idx2:end_idx2+1], signal2[start_idx2:end_idx2+1]
 
-        # --- Analyse FFT ---
+        # Analyse FFT
         freqs_pos1, magnitude_pos1, fundamental_frequency1, harmonics1, noise_power1, SNR1, THD1, amp_fund1, score_global1 = analyze_signal(time_filtered1, signal_filtered1, fixed_fundamental)
         freqs_pos2, magnitude_pos2, fundamental_frequency2, harmonics2, noise_power2, SNR2, THD2, amp_fund2, score_global2 = analyze_signal(time_filtered2, signal_filtered2, fixed_fundamental)
 
-        # --- Affichage graphique ---
+        # Graphiques
         fig, axes = plt.subplots(2,2, figsize=(12,10))
         axes[0,0].plot(time_filtered1, signal_filtered1)
         axes[0,0].set_title("Signal temporel 1")
@@ -119,7 +127,7 @@ if uploaded_file1 and uploaded_file2:
         plt.tight_layout()
         st.pyplot(fig)
 
-        # --- Affichage des résultats ---
+        # Résultats
         st.write("### Paramètres et indicateurs")
         for i, (fund, SNRv, THDv, noise, harms, amp, score) in enumerate([
             (fundamental_frequency1, SNR1, THD1, noise_power1, harmonics1, amp_fund1, score_global1),
@@ -136,7 +144,7 @@ if uploaded_file1 and uploaded_file2:
             harms_df = pd.DataFrame(harms, columns=["Ordre", "Fréquence (Hz)", "Amplitude"])
             st.dataframe(harms_df)
 
-        # --- Comparaison globale avec explication ---
+        # Comparaison globale
         st.write("### Comparaison globale")
         if score_global1 > score_global2:
             best_signal="Signal 1"
@@ -151,7 +159,7 @@ if uploaded_file1 and uploaded_file2:
         st.write(f"Signal le plus propre : **{best_signal}**")
         st.info(comparison_result)
 
-        # --- Export CSV ---
+        # Export CSV
         all_data = []
         for i, (fund, SNRv, THDv, noise, harms, amp, score) in enumerate([
             (fundamental_frequency1, SNR1, THD1, noise_power1, harmonics1, amp_fund1, score_global1),
