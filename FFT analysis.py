@@ -1,4 +1,3 @@
-
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -20,11 +19,10 @@ st.markdown("""
 - **Score global** : combinaison pondérée de SNR, THD, bruit, amplitude fondamentale et RMSE.
 """)
 
-# --- Sidebar pour réglages ---
+# --- Sidebar paramètres ---
 st.sidebar.header("⚙️ Paramètres d'analyse")
 uploaded_file1 = st.sidebar.file_uploader("Chargez le premier fichier CSV", type=["csv"])
 uploaded_file2 = st.sidebar.file_uploader("Chargez le deuxième fichier CSV", type=["csv"])
-
 start_threshold = st.sidebar.number_input("Exclure les N premières secondes :", min_value=0.0, value=30.0, step=1.0)
 end_threshold = st.sidebar.number_input("Exclure les N dernières secondes :", min_value=0.0, value=20.0, step=1.0)
 fixed_fundamental = st.sidebar.number_input("Forcer la fréquence fondamentale (Hz, mettre 0 pour auto)", min_value=0.0, value=0.0, step=1.0)
@@ -60,7 +58,6 @@ def analyze_signal(time, signal, fixed_fundamental=0.0):
                 harmonics.append((n, target, magnitude_interp))
 
     noise_power = sum([m**2 for f,m in zip(freqs_pos, magnitude_pos) if 0<=f<=10 and all(abs(f-h[1])>1e-6 for h in harmonics)])
-
     power_fund = harmonics[0][2]**2 if harmonics else 0
     power_harmo = sum([h[2]**2 for h in harmonics[1:]]) if harmonics else 0
 
@@ -101,32 +98,47 @@ if uploaded_file1 and uploaded_file2:
         rmse1, ideal1 = compute_rmse(time_filtered1, signal_filtered1)
         rmse2, ideal2 = compute_rmse(time_filtered2, signal_filtered2)
 
-        # --- Graphiques avec modèle ---
+        # --- Graphiques avec modèle et fréquence fondamentale ---
         fig, axes = plt.subplots(2,2, figsize=(12,10))
+        # Signal 1 temporel
         axes[0,0].plot(time_filtered1, signal_filtered1, label="Signal 1")
         axes[0,0].plot(time_filtered1, ideal1, 'r--', label="Modèle idéal")
         axes[0,0].legend()
         axes[0,0].set_title("Signal temporel 1 (avec modèle)")
 
+        # FFT Signal 1
         axes[0,1].stem(freqs_pos1, magnitude_pos1, basefmt=" ")
+        axes[0,1].axvline(fundamental_frequency1, color="r", linestyle="--", label="Fréquence fondamentale")
+        axes[0,1].annotate(f"{fundamental_frequency1:.2f} Hz\nAmp={amp_fund1:.2f}",
+                           xy=(fundamental_frequency1, amp_fund1),
+                           xytext=(fundamental_frequency1+0.5, amp_fund1),
+                           arrowprops=dict(facecolor='red', shrink=0.05))
         axes[0,1].set_xlim(0,10)
         axes[0,1].set_title("FFT - Signal 1")
+        axes[0,1].legend()
 
+        # Signal 2 temporel
         axes[1,0].plot(time_filtered2, signal_filtered2, color='orange', label="Signal 2")
         axes[1,0].plot(time_filtered2, ideal2, 'r--', label="Modèle idéal")
         axes[1,0].legend()
         axes[1,0].set_title("Signal temporel 2 (avec modèle)")
 
+        # FFT Signal 2
         axes[1,1].stem(freqs_pos2, magnitude_pos2, basefmt=" ", linefmt='orange')
+        axes[1,1].axvline(fundamental_frequency2, color="r", linestyle="--", label="Fréquence fondamentale")
+        axes[1,1].annotate(f"{fundamental_frequency2:.2f} Hz\nAmp={amp_fund2:.2f}",
+                           xy=(fundamental_frequency2, amp_fund2),
+                           xytext=(fundamental_frequency2+0.5, amp_fund2),
+                           arrowprops=dict(facecolor='red', shrink=0.05))
         axes[1,1].set_xlim(0,10)
         axes[1,1].set_title("FFT - Signal 2")
+        axes[1,1].legend()
 
         plt.tight_layout()
         st.pyplot(fig)
 
         # --- Comparaison chiffrée ---
         st.write("### Comparaison globale détaillée")
-
         comparison_data = {
             "Critère": ["RMSE vs modèle", "SNR (dB)", "THD (dB)", "Puissance de bruit", "Score global"],
             "Signal 1": [rmse1, SNR1, THD1, noise_power1, score_global1],
@@ -135,7 +147,7 @@ if uploaded_file1 and uploaded_file2:
         comparison_df = pd.DataFrame(comparison_data)
         st.dataframe(comparison_df)
 
-        # --- Graphe comparatif barres ---
+        # Graphe comparatif barres
         fig2, ax2 = plt.subplots(figsize=(8,5))
         ind = np.arange(len(comparison_data["Critère"]))
         width = 0.35
