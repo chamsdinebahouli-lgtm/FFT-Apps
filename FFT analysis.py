@@ -106,8 +106,7 @@ if uploaded_file1 and uploaded_file2:
         axes[0,0].plot(time_filtered1, ideal1, 'r--', label="Modèle idéal")
         axes[0,0].legend()
         axes[0,0].set_title("Signal temporel 1 (avec modèle)")
-
-       # FFT Signal 1
+# FFT Signal 1
 axes[0,1].stem(freqs_pos1, magnitude_pos1, basefmt=" ")
 axes[0,1].axvline(fundamental_frequency1, color="r", linestyle="--", label="Fréquence fondamentale")
 axes[0,1].annotate(f"{fundamental_frequency1:.2f} Hz\nAmp={amp_fund1:.2f}",
@@ -118,12 +117,7 @@ axes[0,1].set_xlim(0,10)
 axes[0,1].set_title("FFT - Signal 1")
 axes[0,1].legend()
 
-        axes[1,0].plot(time_filtered2, signal_filtered2, color='orange', label="Signal 2")
-        axes[1,0].plot(time_filtered2, ideal2, 'r--', label="Modèle idéal")
-        axes[1,0].legend()
-        axes[1,0].set_title("Signal temporel 2 (avec modèle)")
-
-        # FFT Signal 2
+# FFT Signal 2
 axes[1,1].stem(freqs_pos2, magnitude_pos2, basefmt=" ", linefmt='orange')
 axes[1,1].axvline(fundamental_frequency2, color="r", linestyle="--", label="Fréquence fondamentale")
 axes[1,1].annotate(f"{fundamental_frequency2:.2f} Hz\nAmp={amp_fund2:.2f}",
@@ -133,10 +127,6 @@ axes[1,1].annotate(f"{fundamental_frequency2:.2f} Hz\nAmp={amp_fund2:.2f}",
 axes[1,1].set_xlim(0,10)
 axes[1,1].set_title("FFT - Signal 2")
 axes[1,1].legend()
-
-        plt.tight_layout()
-        st.pyplot(fig)
-
         # --- Comparaison chiffrée ---
         st.write("### Comparaison globale détaillée")
 
