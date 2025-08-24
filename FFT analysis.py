@@ -2,176 +2,159 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import io
-
-st.title("Application d'analyse FFT de deux signaux")
-
-# --- Encadré explicatif ---
-st.subheader("💡 Définitions des indicateurs de qualité du signal")
-st.markdown("""
-- **Fréquence fondamentale (Hz)** : fréquence principale du signal correspondant au mouvement moteur.
-- **Amplitude fondamentale** : intensité de la fréquence principale.
-- **SNR (Signal-to-Noise Ratio, dB)** : rapport entre la puissance du signal fondamental et le bruit. Plus SNR élevé → signal propre.
-- **THD (Total Harmonic Distortion, dB)** : mesure de la distorsion du signal via les harmoniques. Plus THD faible → signal moins déformé.
-- **Bruit (0-10 Hz hors harmoniques)** : énergie hors des harmoniques principales, indicateur de perturbations.
-- **Score global** : combinaison pondérée de SNR, THD, bruit et amplitude fondamentale pour comparer la qualité des signaux.
-""")
-
-uploaded_file1 = st.file_uploader("Chargez le premier fichier CSV", type=["csv"])
-uploaded_file2 = st.file_uploader("Chargez le deuxième fichier CSV", type=["csv"])
-
-start_threshold = st.number_input("Exclure les N premières secondes :", min_value=0.0, value=30.0, step=1.0)
-end_threshold = st.number_input("Exclure les N dernières secondes :", min_value=0.0, value=20.0, step=1.0)
-fixed_fundamental = st.number_input("Forcer la fréquence fondamentale (Hz, mettre 0 pour auto)", min_value=0.0, value=0.0, step=1.0)
 
 # --- Fonction d'analyse FFT ---
-def analyze_signal(time, signal, fixed_fundamental=0.0):
-    dt = time[1] - time[0]
-    sig_centered = signal - np.mean(signal)
-    fft_vals = np.fft.fft(sig_centered)
-    freqs = np.fft.fftfreq(len(sig_centered), d=dt)
-    mask = freqs >= 0
+def analyze_signal(time, signal, fixed_fundamental=0):
+    N = len(signal)
+    T = (time[-1] - time[0]) / N
+    fs = 1.0 / (time[1] - time[0])  # fréquence d’échantillonnage
 
-    # CORRECTION : multiplication par 2 pour amplitudes unilatérales
-    magnitude_pos = 2 * np.abs(fft_vals[mask]) / len(sig_centered)
-    freqs_pos = freqs[mask]
+    # FFT
+    fft_values = np.fft.fft(signal)
+    freqs = np.fft.fftfreq(N, 1 / fs)
+    magnitude = np.abs(fft_values) / N
+    magnitude = 2 * magnitude[:N // 2]
+    freqs_pos = freqs[:N // 2]
 
-    # Trouver la fréquence fondamentale
-    fundamental_freq = 0
-    harmonics = []
-
+    # Détection fondamentale
     if fixed_fundamental > 0:
         fundamental_freq = fixed_fundamental
-        # Interpolation pour amplitude exacte
-        magnitude_interp = np.interp(fundamental_freq, freqs_pos, magnitude_pos)
-        harmonics.append((1, fundamental_freq, magnitude_interp))
-    elif len(magnitude_pos) > 1:
-        idx = np.argmax(magnitude_pos[1:]) + 1
-        fundamental_freq = freqs_pos[idx]
-        harmonics.append((1, fundamental_freq, magnitude_pos[idx]))
-
-    # 10 premiers harmoniques
-    if fundamental_freq > 0:
+        magnitude_interp = np.interp(fundamental_freq, freqs_pos, magnitude)
+        harmonics = [(1, fundamental_freq, magnitude_interp)]
         for n in range(2, 11):
             target = n * fundamental_freq
             if target <= freqs_pos[-1]:
-                magnitude_interp = np.interp(target, freqs_pos, magnitude_pos)
+                magnitude_interp = np.interp(target, freqs_pos, magnitude)
                 harmonics.append((n, target, magnitude_interp))
+    else:
+        idx_max = np.argmax(magnitude[1:]) + 1
+        fundamental_freq = freqs_pos[idx_max]
+        harmonics = [(1, fundamental_freq, magnitude[idx_max])]
+        for n in range(2, 11):
+            target = n * fundamental_freq
+            if target <= freqs_pos[-1]:
+                idx = np.argmin(np.abs(freqs_pos - target))
+                harmonics.append((n, freqs_pos[idx], magnitude[idx]))
 
-    # Bruit (0-10 Hz, hors harmoniques)
-    noise_power = sum([m**2 for f,m in zip(freqs_pos, magnitude_pos) if 0<=f<=10 and all(abs(f-h[1])>1e-6 for h in harmonics)])
+    # Paramètres
+    amp_fund = harmonics[0][2]
+    harm_amps = np.array([h[2] for h in harmonics[1:]])
+    harm_power = np.sum(harm_amps ** 2)
+    noise_power = np.sum(magnitude ** 2) - (amp_fund ** 2 + harm_power)
+    SNR = 10 * np.log10(amp_fund ** 2 / noise_power) if noise_power > 0 else np.inf
+    THD = 10 * np.log10(harm_power / amp_fund ** 2) if amp_fund > 0 else -np.inf
+    score_global = SNR - THD - 10 * noise_power
 
-    power_fund = harmonics[0][2]**2 if harmonics else 0
-    power_harmo = sum([h[2]**2 for h in harmonics[1:]]) if harmonics else 0
+    return freqs_pos, magnitude, fundamental_freq, amp_fund, SNR, THD, noise_power, harmonics, score_global
 
-    SNR = 10*np.log10(power_fund / noise_power) if noise_power>0 else np.inf
-    THD = 10*np.log10(power_harmo / power_fund) if power_fund>0 else -np.inf
-    amp_fundamental = harmonics[0][2] if harmonics else 0
+# --- Application Streamlit ---
+st.title("🔎 Analyse spectrale de deux signaux (FFT)")
 
-    # Score global combiné
-    score_global = 0.4*SNR - 0.3*THD - 0.2*noise_power + 0.1*amp_fundamental
+# Paramètres utilisateur
+st.sidebar.header("⚙️ Paramètres")
+fixed_freq = st.sidebar.number_input("Forcer la fréquence fondamentale (Hz, 0 = auto)", value=0.0)
 
-    return freqs_pos, magnitude_pos, fundamental_freq, harmonics, noise_power, SNR, THD, amp_fundamental, score_global
+# Import des signaux
+uploaded_file1 = st.file_uploader("Charger le fichier CSV du Signal 1", type=["csv"])
+uploaded_file2 = st.file_uploader("Charger le fichier CSV du Signal 2", type=["csv"])
 
-# --- Traitement des fichiers ---
 if uploaded_file1 and uploaded_file2:
-    try:
-        df1 = pd.read_csv(uploaded_file1, decimal=',')
-        df2 = pd.read_csv(uploaded_file2, decimal=',')
+    data1 = pd.read_csv(uploaded_file1)
+    data2 = pd.read_csv(uploaded_file2)
 
-        time1, signal1 = df1['Time'].values, df1['Signal'].values
-        time2, signal2 = df2['Time'].values, df2['Signal'].values
+    time1, signal1 = data1.iloc[:, 0].values, data1.iloc[:, 1].values
+    time2, signal2 = data2.iloc[:, 0].values, data2.iloc[:, 1].values
 
-        # Filtrage temporel
-        t_start1, t_end1 = start_threshold, time1[-1]-end_threshold
-        start_idx1, end_idx1 = np.argmax(time1>=t_start1), len(time1)-1 - np.argmax(time1[::-1]<=t_end1)
-        time_filtered1, signal_filtered1 = time1[start_idx1:end_idx1+1], signal1[start_idx1:end_idx1+1]
-        freqs_pos1, magnitude_pos1, fundamental_frequency1, harmonics1, noise_power1, SNR1, THD1, amp_fund1, score_global1 = analyze_signal(time_filtered1, signal_filtered1, fixed_fundamental)
+    # Analyse FFT
+    freqs1, mag1, f0_1, amp1, SNR1, THD1, noise1, harms1, score1 = analyze_signal(time1, signal1, fixed_freq)
+    freqs2, mag2, f0_2, amp2, SNR2, THD2, noise2, harms2, score2 = analyze_signal(time2, signal2, fixed_freq)
 
-        t_start2, t_end2 = start_threshold, time2[-1]-end_threshold
-        start_idx2, end_idx2 = np.argmax(time2>=t_start2), len(time2)-1 - np.argmax(time2[::-1]<=t_end2)
-        time_filtered2, signal_filtered2 = time2[start_idx2:end_idx2+1], signal2[start_idx2:end_idx2+1]
-        freqs_pos2, magnitude_pos2, fundamental_frequency2, harmonics2, noise_power2, SNR2, THD2, amp_fund2, score_global2 = analyze_signal(time_filtered2, signal_filtered2, fixed_fundamental)
+    # --- Graphiques temporels ---
+    st.subheader("⏱️ Signaux temporels")
+    fig, ax = plt.subplots()
+    ax.plot(time1, signal1, label="Signal 1")
+    ax.plot(time2, signal2, label="Signal 2")
+    ax.legend()
+    ax.set_xlabel("Temps [s]")
+    ax.set_ylabel("Amplitude")
+    st.pyplot(fig)
 
-        # --- Affichage graphique ---
-        fig, axes = plt.subplots(2,2, figsize=(12,10))
-        axes[0,0].plot(time_filtered1, signal_filtered1)
-        axes[0,0].set_title("Signal temporel 1")
-        axes[0,1].stem(freqs_pos1, magnitude_pos1, basefmt=" ")
-        axes[0,1].set_xlim(0,10)
-        axes[0,1].set_title("FFT - Signal 1")
-        axes[1,0].plot(time_filtered2, signal_filtered2, color='orange')
-        axes[1,0].set_title("Signal temporel 2")
-        axes[1,1].stem(freqs_pos2, magnitude_pos2, basefmt=" ", linefmt='orange')
-        axes[1,1].set_xlim(0,10)
-        axes[1,1].set_title("FFT - Signal 2")
-        plt.tight_layout()
-        st.pyplot(fig)
+    # --- Spectres FFT ---
+    st.subheader("📊 Spectres de fréquences (FFT)")
+    fig, ax = plt.subplots()
+    ax.plot(freqs1, mag1, label="Signal 1")
+    ax.plot(freqs2, mag2, label="Signal 2")
+    ax.set_xlim(0, max(f0_1, f0_2) * 10)
+    ax.legend()
+    ax.set_xlabel("Fréquence [Hz]")
+    ax.set_ylabel("Amplitude")
+    st.pyplot(fig)
 
-        # --- Affichage des résultats ---
-        st.write("### Paramètres et indicateurs")
-        for i, (fund, SNRv, THDv, noise, harms, amp, score) in enumerate([
-            (fundamental_frequency1, SNR1, THD1, noise_power1, harmonics1, amp_fund1, score_global1),
-            (fundamental_frequency2, SNR2, THD2, noise_power2, harmonics2, amp_fund2, score_global2)
-        ], start=1):
-            st.write(f"**Signal {i}** :")
-            st.write(f"Fréquence fondamentale = {fund:.4f} Hz")
-            st.write(f"Amplitude fondamentale = {amp:.4f}")
-            st.write(f"SNR = {SNRv:.2f} dB")
-            st.write(f"THD = {THDv:.2f} dB")
-            st.write(f"Bruit (0-10 Hz hors harmoniques) = {noise:.4f}")
-            st.write(f"Score global = {score:.2f}")
-            st.write("Harmoniques :")
-            harms_df = pd.DataFrame(harms, columns=["Ordre", "Fréquence (Hz)", "Amplitude"])
-            st.dataframe(harms_df)
+    # --- Tableau des harmoniques ---
+    st.subheader("📋 Harmoniques détectées")
+    df_harmonics = pd.DataFrame({
+        "Ordre": [h[0] for h in harms1],
+        "Fréquence Signal 1 [Hz]": [h[1] for h in harms1],
+        "Amplitude Signal 1": [h[2] for h in harms1],
+        "Fréquence Signal 2 [Hz]": [h[1] for h in harms2],
+        "Amplitude Signal 2": [h[2] for h in harms2],
+    })
+    st.dataframe(df_harmonics)
 
-        # --- Comparaison ---
-        if score_global1 > score_global2:
-            best_signal="Signal 1"
-            comparison_result="Signal 1 globalement meilleur selon le score combiné"
-        elif score_global2 > score_global1:
-            best_signal="Signal 2"
-            comparison_result="Signal 2 globalement meilleur selon le score combiné"
-        else:
-            best_signal="Égalité"
-            comparison_result="Les deux signaux sont équivalents selon le score combiné"
+    # --- Résultats comparatifs globaux ---
+    st.header("🔎 Comparaison globale")
 
-        st.write("### Comparaison globale")
-        st.write(f"Signal le plus propre : {best_signal}")
-        st.write(comparison_result)
+    st.write("### Paramètres principaux")
+    st.write(f"**Signal 1 :** f₀ = {f0_1:.4f} Hz, "
+             f"Amplitude = {amp1:.4f}, SNR = {SNR1:.2f} dB, "
+             f"THD = {THD1:.2f} dB, Bruit = {noise1:.4e}, Score global = {score1:.2f}")
+    st.write(f"**Signal 2 :** f₀ = {f0_2:.4f} Hz, "
+             f"Amplitude = {amp2:.4f}, SNR = {SNR2:.2f} dB, "
+             f"THD = {THD2:.2f} dB, Bruit = {noise2:.4e}, Score global = {score2:.2f}")
 
-        # --- Export CSV des résultats et harmoniques ---
-        all_data = []
-        for i, (fund, SNRv, THDv, noise, harms, amp, score) in enumerate([
-            (fundamental_frequency1, SNR1, THD1, noise_power1, harmonics1, amp_fund1, score_global1),
-            (fundamental_frequency2, SNR2, THD2, noise_power2, harmonics2, amp_fund2, score_global2)
-        ], start=1):
-            for order, freq, magnitude in harms:
-                all_data.append({
-                    "Signal": f"Signal {i}",
-                    "Ordre harmonique": order,
-                    "Fréquence (Hz)": freq,
-                    "Amplitude": magnitude,
-                    "Fréquence fondamentale (Hz)": fund,
-                    "Amplitude fondamentale": amp,
-                    "SNR (dB)": SNRv,
-                    "THD (dB)": THDv,
-                    "Bruit (0-10Hz)": noise,
-                    "Score global": score
-                })
+    if score1 > score2:
+        st.success("✅ **Signal 1 est globalement meilleur** selon les critères combinés.")
+    elif score2 > score1:
+        st.success("✅ **Signal 2 est globalement meilleur** selon les critères combinés.")
+    else:
+        st.info("⚖️ Les deux signaux présentent une qualité très proche.")
 
-        if all_data:
-            harmonics_df = pd.DataFrame(all_data)
-            csv_buffer = io.StringIO()
-            harmonics_df.to_csv(csv_buffer, index=False, sep=";")
-            st.download_button(
-                label="📥 Télécharger toutes les données des harmoniques et paramètres (CSV)",
-                data=csv_buffer.getvalue(),
-                file_name="harmoniques_signaux.csv",
-                mime="text/csv"
-            )
+    # --- Commentaires qualitatifs ---
+    st.write("### Commentaires qualitatifs complémentaires")
 
-    except Exception as e:
-        st.error(f"Erreur lors de l'analyse : {e}")
-else:
-    st.info("Veuillez télécharger les deux fichiers CSV pour commencer l'analyse.")
+    # Stabilité de la fréquence fondamentale
+    if abs(f0_1 - f0_2) < 0.1:
+        st.write("⚙️ Les deux signaux ont une fréquence fondamentale très proche → bonne stabilité du moteur.")
+    else:
+        st.write("⚠️ Différence notable entre les fréquences fondamentales → possible variation du régime moteur.")
+
+    # Amplitude de la fondamentale
+    if abs(amp1 - amp2) < 0.01:
+        st.write("📊 Les amplitudes fondamentales sont similaires → la puissance utile reste comparable.")
+    else:
+        strongest = "Signal 1" if amp1 > amp2 else "Signal 2"
+        st.write(f"📊 {strongest} a une amplitude fondamentale plus élevée → meilleure transmission d’énergie utile.")
+
+    # Distorsion harmonique
+    if THD1 < THD2:
+        st.write("🎶 Signal 1 présente moins de distorsion harmonique → spectre plus propre.")
+    elif THD2 < THD1:
+        st.write("🎶 Signal 2 présente moins de distorsion harmonique → spectre plus propre.")
+    else:
+        st.write("🎶 Les deux signaux ont un niveau de distorsion harmonique similaire.")
+
+    # Rapport signal/bruit
+    if SNR1 > SNR2:
+        st.write("🔊 Signal 1 possède un meilleur rapport signal/bruit → moins de perturbations parasites.")
+    elif SNR2 > SNR1:
+        st.write("🔊 Signal 2 possède un meilleur rapport signal/bruit → moins de perturbations parasites.")
+    else:
+        st.write("🔊 Les deux signaux présentent un rapport signal/bruit comparable.")
+
+    # Niveau de bruit
+    if noise1 < noise2:
+        st.write("🌐 Signal 1 a un niveau de bruit global plus faible → meilleure qualité.")
+    elif noise2 < noise1:
+        st.write("🌐 Signal 2 a un niveau de bruit global plus faible → meilleure qualité.")
+    else:
+        st.write("🌐 Les deux signaux ont un niveau de bruit similaire.")
