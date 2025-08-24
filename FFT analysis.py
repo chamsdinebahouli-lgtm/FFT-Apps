@@ -105,16 +105,12 @@ if uploaded_file1 and uploaded_file2:
         axes1[1].set_title(f"Signal 2 (RMSE={rmse2:.4f})"); axes1[1].legend()
         st.pyplot(fig1)
 
-        # --- FFT du signal d'écart avec coloration ---
+        # --- FFT du signal d'écart ---
         fig2, axes2 = plt.subplots(2,1, figsize=(12,6))
-        # Signal 1
-        norm1 = mag_diff1/np.max(mag_diff1) if np.max(mag_diff1)>0 else mag_diff1
-        axes2[0].stem(freqs_diff1, mag_diff1, linefmt='-', markerfmt='o', basefmt=" ", use_line_collection=True)
+        axes2[0].stem(freqs_diff1, mag_diff1, linefmt='-', markerfmt='o', basefmt=" ")
         axes2[0].set_xlim(0,freq_display_max)
         axes2[0].set_title("FFT écart vs modèle - Signal 1")
-        # Signal 2
-        norm2 = mag_diff2/np.max(mag_diff2) if np.max(mag_diff2)>0 else mag_diff2
-        axes2[1].stem(freqs_diff2, mag_diff2, linefmt='-', markerfmt='o', basefmt=" ", use_line_collection=True)
+        axes2[1].stem(freqs_diff2, mag_diff2, linefmt='-', markerfmt='o', basefmt=" ")
         axes2[1].set_xlim(0,freq_display_max)
         axes2[1].set_title("FFT écart vs modèle - Signal 2")
         plt.tight_layout()
