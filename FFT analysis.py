@@ -19,13 +19,16 @@ st.markdown("""
 - **Score global** : combinaison pondérée de SNR, THD, bruit, amplitude fondamentale et RMSE.
 """)
 
-# --- Sidebar paramètres ---
+# --- Sidebar pour réglages ---
 st.sidebar.header("⚙️ Paramètres d'analyse")
 uploaded_file1 = st.sidebar.file_uploader("Chargez le premier fichier CSV", type=["csv"])
 uploaded_file2 = st.sidebar.file_uploader("Chargez le deuxième fichier CSV", type=["csv"])
+
 start_threshold = st.sidebar.number_input("Exclure les N premières secondes :", min_value=0.0, value=30.0, step=1.0)
 end_threshold = st.sidebar.number_input("Exclure les N dernières secondes :", min_value=0.0, value=20.0, step=1.0)
 fixed_fundamental = st.sidebar.number_input("Forcer la fréquence fondamentale (Hz, mettre 0 pour auto)", min_value=0.0, value=0.0, step=1.0)
+
+segment_duration = st.sidebar.number_input("Durée d'un segment (secondes) :", min_value=1.0, value=5.0, step=1.0)
 
 # --- Analyse FFT ---
 def analyze_signal(time, signal, fixed_fundamental=0.0):
@@ -58,6 +61,7 @@ def analyze_signal(time, signal, fixed_fundamental=0.0):
                 harmonics.append((n, target, magnitude_interp))
 
     noise_power = sum([m**2 for f,m in zip(freqs_pos, magnitude_pos) if 0<=f<=10 and all(abs(f-h[1])>1e-6 for h in harmonics)])
+
     power_fund = harmonics[0][2]**2 if harmonics else 0
     power_harmo = sum([h[2]**2 for h in harmonics[1:]]) if harmonics else 0
 
@@ -75,6 +79,34 @@ def compute_rmse(time, signal):
     rmse = np.sqrt(np.mean((signal - ideal_signal) ** 2))
     return rmse, ideal_signal
 
+# --- Analyse par segments ---
+def analyze_segments(time, signal, segment_duration, fixed_fundamental=0.0):
+    results = []
+    dt = time[1] - time[0]
+    points_per_segment = int(segment_duration / dt)
+    n_segments = len(signal) // points_per_segment
+
+    for i in range(n_segments):
+        t_seg = time[i*points_per_segment:(i+1)*points_per_segment]
+        s_seg = signal[i*points_per_segment:(i+1)*points_per_segment]
+        if len(s_seg) < 2:  # éviter erreur FFT
+            continue
+
+        freqs, mags, fund, harmonics, noise, SNR, THD, amp_fund, score = analyze_signal(t_seg, s_seg, fixed_fundamental)
+        rmse, _ = compute_rmse(t_seg, s_seg)
+
+        results.append({
+            "Segment": i+1,
+            "Début (s)": t_seg[0],
+            "Fin (s)": t_seg[-1],
+            "RMSE": rmse,
+            "SNR (dB)": SNR,
+            "THD (dB)": THD,
+            "Score global": score
+        })
+
+    return pd.DataFrame(results)
+
 # --- Traitement fichiers ---
 if uploaded_file1 and uploaded_file2:
     try:
@@ -84,6 +116,7 @@ if uploaded_file1 and uploaded_file2:
         time1, signal1 = df1['Time'].values, df1['Signal'].values
         time2, signal2 = df2['Time'].values, df2['Signal'].values
 
+        # Appliquer filtres temporels
         t_start1, t_end1 = start_threshold, time1[-1]-end_threshold
         start_idx1, end_idx1 = np.argmax(time1>=t_start1), len(time1)-1 - np.argmax(time1[::-1]<=t_end1)
         time_filtered1, signal_filtered1 = time1[start_idx1:end_idx1+1], signal1[start_idx1:end_idx1+1]
@@ -92,47 +125,36 @@ if uploaded_file1 and uploaded_file2:
         start_idx2, end_idx2 = np.argmax(time2>=t_start2), len(time2)-1 - np.argmax(time2[::-1]<=t_end2)
         time_filtered2, signal_filtered2 = time2[start_idx2:end_idx2+1], signal2[start_idx2:end_idx2+1]
 
+        # Analyse globale
         freqs_pos1, magnitude_pos1, fundamental_frequency1, harmonics1, noise_power1, SNR1, THD1, amp_fund1, score_global1 = analyze_signal(time_filtered1, signal_filtered1, fixed_fundamental)
         freqs_pos2, magnitude_pos2, fundamental_frequency2, harmonics2, noise_power2, SNR2, THD2, amp_fund2, score_global2 = analyze_signal(time_filtered2, signal_filtered2, fixed_fundamental)
 
         rmse1, ideal1 = compute_rmse(time_filtered1, signal_filtered1)
         rmse2, ideal2 = compute_rmse(time_filtered2, signal_filtered2)
 
-        # --- Graphiques avec modèle et fréquence fondamentale ---
+        # --- Graphiques avec modèle ---
         fig, axes = plt.subplots(2,2, figsize=(12,10))
-        # Signal 1 temporel
         axes[0,0].plot(time_filtered1, signal_filtered1, label="Signal 1")
         axes[0,0].plot(time_filtered1, ideal1, 'r--', label="Modèle idéal")
         axes[0,0].legend()
         axes[0,0].set_title("Signal temporel 1 (avec modèle)")
 
-        # FFT Signal 1
         axes[0,1].stem(freqs_pos1, magnitude_pos1, basefmt=" ")
-        axes[0,1].axvline(fundamental_frequency1, color="r", linestyle="--", label="Fréquence fondamentale")
-        axes[0,1].annotate(f"{fundamental_frequency1:.2f} Hz\nAmp={amp_fund1:.2f}",
-                           xy=(fundamental_frequency1, amp_fund1),
-                           xytext=(fundamental_frequency1+0.5, amp_fund1),
-                           arrowprops=dict(facecolor='red', shrink=0.05))
+        axes[0,1].axvline(fundamental_frequency1, color="red", linestyle="--", label=f"Fund {fundamental_frequency1:.2f}Hz")
+        axes[0,1].legend()
         axes[0,1].set_xlim(0,10)
         axes[0,1].set_title("FFT - Signal 1")
-        axes[0,1].legend()
 
-        # Signal 2 temporel
         axes[1,0].plot(time_filtered2, signal_filtered2, color='orange', label="Signal 2")
         axes[1,0].plot(time_filtered2, ideal2, 'r--', label="Modèle idéal")
         axes[1,0].legend()
         axes[1,0].set_title("Signal temporel 2 (avec modèle)")
 
-        # FFT Signal 2
         axes[1,1].stem(freqs_pos2, magnitude_pos2, basefmt=" ", linefmt='orange')
-        axes[1,1].axvline(fundamental_frequency2, color="r", linestyle="--", label="Fréquence fondamentale")
-        axes[1,1].annotate(f"{fundamental_frequency2:.2f} Hz\nAmp={amp_fund2:.2f}",
-                           xy=(fundamental_frequency2, amp_fund2),
-                           xytext=(fundamental_frequency2+0.5, amp_fund2),
-                           arrowprops=dict(facecolor='red', shrink=0.05))
+        axes[1,1].axvline(fundamental_frequency2, color="red", linestyle="--", label=f"Fund {fundamental_frequency2:.2f}Hz")
+        axes[1,1].legend()
         axes[1,1].set_xlim(0,10)
         axes[1,1].set_title("FFT - Signal 2")
-        axes[1,1].legend()
 
         plt.tight_layout()
         st.pyplot(fig)
@@ -147,47 +169,32 @@ if uploaded_file1 and uploaded_file2:
         comparison_df = pd.DataFrame(comparison_data)
         st.dataframe(comparison_df)
 
-        # Graphe comparatif barres
-        fig2, ax2 = plt.subplots(figsize=(8,5))
-        ind = np.arange(len(comparison_data["Critère"]))
-        width = 0.35
-        ax2.bar(ind-width/2, comparison_df["Signal 1"], width, label="Signal 1")
-        ax2.bar(ind+width/2, comparison_df["Signal 2"], width, label="Signal 2")
-        ax2.set_xticks(ind)
-        ax2.set_xticklabels(comparison_data["Critère"], rotation=30, ha="right")
-        ax2.set_title("Comparaison des indicateurs")
-        ax2.legend()
-        st.pyplot(fig2)
+        # --- Analyse par segments ---
+        st.subheader("🔎 Analyse par segments")
+        seg_results1 = analyze_segments(time_filtered1, signal_filtered1, segment_duration, fixed_fundamental)
+        seg_results2 = analyze_segments(time_filtered2, signal_filtered2, segment_duration, fixed_fundamental)
 
-        # --- Analyse automatique ---
-        comments = []
-        if rmse1 < rmse2:
-            comments.append("➡️ **Signal 1** suit mieux le modèle idéal (RMSE plus faible).")
-        else:
-            comments.append("➡️ **Signal 2** suit mieux le modèle idéal (RMSE plus faible).")
-        if SNR1 > SNR2:
-            comments.append("➡️ **Signal 1** est moins bruité (SNR plus élevé).")
-        else:
-            comments.append("➡️ **Signal 2** est moins bruité (SNR plus élevé).")
-        if THD1 < THD2:
-            comments.append("➡️ **Signal 1** présente moins de distorsion harmonique (THD plus faible).")
-        else:
-            comments.append("➡️ **Signal 2** présente moins de distorsion harmonique (THD plus faible).")
-        if noise_power1 < noise_power2:
-            comments.append("➡️ **Signal 1** contient moins d'énergie de bruit.")
-        else:
-            comments.append("➡️ **Signal 2** contient moins d'énergie de bruit.")
+        st.write("#### Signal 1 - Segments")
+        st.dataframe(seg_results1)
+        st.write("#### Signal 2 - Segments")
+        st.dataframe(seg_results2)
 
-        if score_global1 > score_global2:
-            final = "✅ **Signal 1 est globalement meilleur selon le score combiné.**"
-        elif score_global2 > score_global1:
-            final = "✅ **Signal 2 est globalement meilleur selon le score combiné.**"
-        else:
-            final = "⚖️ Les deux signaux sont équivalents selon le score combiné."
+        # Visualisation qualité par segments
+        fig3, ax3 = plt.subplots(figsize=(12,4))
+        ax3.plot(time_filtered1, signal_filtered1, label="Signal 1", color="blue")
+        for _, row in seg_results1.iterrows():
+            color = "green" if row["Score global"] == seg_results1["Score global"].max() else "red"
+            ax3.axvspan(row["Début (s)"], row["Fin (s)"], color=color, alpha=0.2)
+        ax3.set_title("Signal 1 avec surbrillance des meilleurs segments")
+        st.pyplot(fig3)
 
-        for c in comments:
-            st.write(c)
-        st.subheader(final)
+        fig4, ax4 = plt.subplots(figsize=(12,4))
+        ax4.plot(time_filtered2, signal_filtered2, label="Signal 2", color="orange")
+        for _, row in seg_results2.iterrows():
+            color = "green" if row["Score global"] == seg_results2["Score global"].max() else "red"
+            ax4.axvspan(row["Début (s)"], row["Fin (s)"], color=color, alpha=0.2)
+        ax4.set_title("Signal 2 avec surbrillance des meilleurs segments")
+        st.pyplot(fig4)
 
     except Exception as e:
         st.error(f"Erreur lors de l'analyse : {e}")
