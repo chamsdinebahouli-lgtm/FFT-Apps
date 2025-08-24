@@ -107,18 +107,32 @@ if uploaded_file1 and uploaded_file2:
         axes[0,0].legend()
         axes[0,0].set_title("Signal temporel 1 (avec modèle)")
 
-        axes[0,1].stem(freqs_pos1, magnitude_pos1, basefmt=" ")
-        axes[0,1].set_xlim(0,10)
-        axes[0,1].set_title("FFT - Signal 1")
+       # FFT Signal 1
+axes[0,1].stem(freqs_pos1, magnitude_pos1, basefmt=" ")
+axes[0,1].axvline(fundamental_frequency1, color="r", linestyle="--", label="Fréquence fondamentale")
+axes[0,1].annotate(f"{fundamental_frequency1:.2f} Hz\nAmp={amp_fund1:.2f}",
+                   xy=(fundamental_frequency1, amp_fund1),
+                   xytext=(fundamental_frequency1+0.5, amp_fund1),
+                   arrowprops=dict(facecolor='red', shrink=0.05))
+axes[0,1].set_xlim(0,10)
+axes[0,1].set_title("FFT - Signal 1")
+axes[0,1].legend()
 
         axes[1,0].plot(time_filtered2, signal_filtered2, color='orange', label="Signal 2")
         axes[1,0].plot(time_filtered2, ideal2, 'r--', label="Modèle idéal")
         axes[1,0].legend()
         axes[1,0].set_title("Signal temporel 2 (avec modèle)")
 
-        axes[1,1].stem(freqs_pos2, magnitude_pos2, basefmt=" ", linefmt='orange')
-        axes[1,1].set_xlim(0,10)
-        axes[1,1].set_title("FFT - Signal 2")
+        # FFT Signal 2
+axes[1,1].stem(freqs_pos2, magnitude_pos2, basefmt=" ", linefmt='orange')
+axes[1,1].axvline(fundamental_frequency2, color="r", linestyle="--", label="Fréquence fondamentale")
+axes[1,1].annotate(f"{fundamental_frequency2:.2f} Hz\nAmp={amp_fund2:.2f}",
+                   xy=(fundamental_frequency2, amp_fund2),
+                   xytext=(fundamental_frequency2+0.5, amp_fund2),
+                   arrowprops=dict(facecolor='red', shrink=0.05))
+axes[1,1].set_xlim(0,10)
+axes[1,1].set_title("FFT - Signal 2")
+axes[1,1].legend()
 
         plt.tight_layout()
         st.pyplot(fig)
