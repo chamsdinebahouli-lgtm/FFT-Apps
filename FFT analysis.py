@@ -181,4 +181,4 @@ if uploaded_file1 and uploaded_file2:
     except Exception as e:
         st.error(f"Erreur lors de l'analyse : {e}")
 else:
-    st.info("Veuillez télécharger les deux fichiers CSV pour commencer l'analyse."
+    st.info("Veuillez télécharger les deux fichiers CSV pour commencer l'analyse.")
